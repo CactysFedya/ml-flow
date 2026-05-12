@@ -329,6 +329,176 @@ export async function openDatasetFolder(datasetId: number): Promise<{ status: st
   return readJson<{ status: string; path: string }>(response, "Open folder request failed");
 }
 
+// ---------------------------------------------------------------------------
+// Training Runs
+// ---------------------------------------------------------------------------
+
+export interface TrainingRunItem {
+  id: number;
+  project_id: number | null;
+  dataset_id: number | null;
+  name: string;
+  model_name: string;
+  status: string;
+  epochs: number;
+  current_epoch: number;
+  batch_size: number;
+  image_size: number;
+  optimizer: string;
+  learning_rate: number;
+  best_map50: number;
+  best_map50_95: number;
+  precision: number;
+  recall: number;
+  box_loss: number;
+  obj_loss: number;
+  cls_loss: number;
+  device: string;
+  elapsed_seconds: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingRunCreatePayload {
+  name?: string;
+  model_name?: string;
+  dataset_id?: number | null;
+  project_id?: number | null;
+  epochs?: number;
+  batch_size?: number;
+  image_size?: number;
+  optimizer?: string;
+  learning_rate?: number;
+  device?: string;
+}
+
+export async function getTrainingRuns(projectId?: number | null): Promise<TrainingRunItem[]> {
+  const params = new URLSearchParams();
+  if (projectId != null) params.set("project_id", String(projectId));
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/training${query ? `?${query}` : ""}`);
+  return readJson<TrainingRunItem[]>(response, "Training runs request failed");
+}
+
+export async function createTrainingRun(payload: TrainingRunCreatePayload): Promise<TrainingRunItem> {
+  const response = await fetch(`${API_BASE_URL}/training`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<TrainingRunItem>(response, "Create training run failed");
+}
+
+export async function deleteTrainingRun(runId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/training/${runId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete training run failed: ${response.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+export interface ModelItem {
+  id: number;
+  project_id: number | null;
+  training_run_id: number | null;
+  name: string;
+  model_type: string;
+  architecture: string;
+  framework: string;
+  dataset_name: string;
+  status: string;
+  version: string;
+  file_path: string;
+  file_size_bytes: number;
+  map50: number;
+  map50_95: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getModels(projectId?: number | null): Promise<ModelItem[]> {
+  const params = new URLSearchParams();
+  if (projectId != null) params.set("project_id", String(projectId));
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/models${query ? `?${query}` : ""}`);
+  return readJson<ModelItem[]>(response, "Models request failed");
+}
+
+export async function deleteModel(modelId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/models/${modelId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete model failed: ${response.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pipelines
+// ---------------------------------------------------------------------------
+
+export interface PipelineItem {
+  id: number;
+  project_id: number | null;
+  name: string;
+  description: string;
+  status: string;
+  template: string;
+  total_steps: number;
+  current_step: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getPipelines(projectId?: number | null): Promise<PipelineItem[]> {
+  const params = new URLSearchParams();
+  if (projectId != null) params.set("project_id", String(projectId));
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/pipelines${query ? `?${query}` : ""}`);
+  return readJson<PipelineItem[]>(response, "Pipelines request failed");
+}
+
+export async function deletePipeline(pipelineId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/pipelines/${pipelineId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete pipeline failed: ${response.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+export interface SettingItem {
+  key: string;
+  value: string;
+  category: string;
+}
+
+export async function getSettings(category?: string): Promise<SettingItem[]> {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/settings${query ? `?${query}` : ""}`);
+  return readJson<SettingItem[]>(response, "Settings request failed");
+}
+
+export async function updateSetting(key: string, value: string): Promise<SettingItem> {
+  const response = await fetch(`${API_BASE_URL}/settings/${key}`, {
+    body: JSON.stringify({ value }),
+    headers: { "Content-Type": "application/json" },
+    method: "PUT",
+  });
+  return readJson<SettingItem>(response, "Update setting failed");
+}
+
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { detail?: string } | null;

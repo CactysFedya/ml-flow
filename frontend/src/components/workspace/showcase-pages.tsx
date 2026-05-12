@@ -27,6 +27,7 @@ import {
   ListFilter,
   MoreHorizontal,
   Play,
+  Plus,
   Rocket,
   Save,
   Search,
@@ -37,6 +38,7 @@ import {
   Square,
   TimerReset,
   Upload,
+  Workflow,
   Zap,
 } from "lucide-react";
 import {
@@ -1532,6 +1534,648 @@ export function ModelsPage() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const datasetVersions = [
+  {
+    version: "v1.2",
+    status: "Current",
+    created: "May 18, 2025, 10:32 AM",
+    author: "Admin",
+    images: "118,000",
+    annotations: "94,400",
+    classes: "80",
+    splits: "Train 94K / Val 12K / Test 12K",
+    size: "68.4 GB",
+    description: "Added AutoLabel annotations for remaining images. Cleaned up duplicate entries.",
+    changes: "+2,400 annotations, +12 verified images",
+  },
+  {
+    version: "v1.1",
+    status: "Archived",
+    created: "May 15, 2025, 02:14 PM",
+    author: "Admin",
+    images: "115,600",
+    annotations: "92,000",
+    classes: "78",
+    splits: "Train 92K / Val 11.8K / Test 11.8K",
+    size: "66.1 GB",
+    description: "Imported additional camera sources. Re-split with 80/10/10 ratio.",
+    changes: "+5,600 images, +2 classes",
+  },
+  {
+    version: "v1.0",
+    status: "Archived",
+    created: "May 10, 2025, 09:00 AM",
+    author: "Admin",
+    images: "110,000",
+    annotations: "88,000",
+    classes: "76",
+    splits: "Train 88K / Val 11K / Test 11K",
+    size: "62.8 GB",
+    description: "Initial dataset version with base annotations.",
+    changes: "Initial import",
+  },
+];
+
+const versionCompareMetrics = [
+  { metric: "Images", v10: "110,000", v11: "115,600", v12: "118,000", delta: "+2.1%" },
+  { metric: "Annotations", v10: "88,000", v11: "92,000", v12: "94,400", delta: "+2.6%" },
+  { metric: "Classes", v10: "76", v11: "78", v12: "80", delta: "+2" },
+  { metric: "Labeled %", v10: "80.0%", v11: "79.6%", v12: "80.0%", delta: "+0.4%" },
+  { metric: "Verified %", v10: "45.2%", v11: "52.1%", v12: "58.4%", delta: "+6.3%" },
+  { metric: "Size", v10: "62.8 GB", v11: "66.1 GB", v12: "68.4 GB", delta: "+2.3 GB" },
+];
+
+export function VersionsPage() {
+  return (
+    <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Versions" subtitle="Track dataset versions, compare changes and manage snapshots" />
+        <Button className="h-11 gap-2">
+          <Plus className="h-4 w-4" />
+          Create Version
+        </Button>
+      </div>
+      <TabBar tabs={["All Versions", "Compare", "Changelog", "Exports"]} active="All Versions" />
+
+      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MiniMetricCard icon={Layers3} label="Total Versions" value="3" subtitle="Coco Dataset v1.2" />
+            <MiniMetricCard icon={FileText} label="Current Version" value="v1.2" subtitle="118,000 images" />
+            <MiniMetricCard icon={Clock3} label="Last Updated" value="3h ago" subtitle="May 18, 10:32 AM" />
+            <MiniMetricCard icon={HardDrive} label="Total Storage" value="197.3 GB" subtitle="All versions combined" />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <SearchField placeholder="Search versions..." className="min-w-[240px] flex-1 xl:max-w-[360px]" />
+            <SelectStub label="All Status" />
+            <SelectStub label="Sort: Newest First" className="ml-auto" />
+          </div>
+
+          {datasetVersions.map((ver) => (
+            <Card key={ver.version}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-primary">
+                      <Layers3 className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="ui-section-title">{ver.version}</h3>
+                        <Badge tone={ver.status === "Current" ? "success" : "default"}>{ver.status}</Badge>
+                      </div>
+                      <div className="mt-1 text-[length:var(--font-sm)] text-slate-500">
+                        Created {ver.created} by {ver.author}
+                      </div>
+                    </div>
+                  </div>
+                  <button className="text-slate-400" type="button">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <p className="mt-3 text-[length:var(--font-sm)] text-slate-500">{ver.description}</p>
+                <div className="mt-2 text-[length:var(--font-xs)] font-medium text-emerald-600">{ver.changes}</div>
+
+                <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-5">
+                  <StatInline icon={FileImage} value={ver.images} label="Images" />
+                  <StatInline icon={CheckCircle2} value={ver.annotations} label="Annotations" />
+                  <StatInline icon={Layers3} value={ver.classes} label="Classes" />
+                  <StatInline icon={HardDrive} value={ver.size} label="Size" />
+                  <StatInline icon={Copy} value={ver.splits} label="Splits" />
+                </div>
+
+                <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-4">
+                  {ver.status === "Current" ? (
+                    <Button className="h-10 gap-2">
+                      <FileDown className="h-4 w-4" />
+                      Export YOLO
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" className="h-10 gap-2 border border-blue-200 bg-blue-50 text-primary">
+                      <Play className="h-4 w-4" />
+                      Restore
+                    </Button>
+                  )}
+                  <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
+                    <Eye className="h-4 w-4" />
+                    Browse Files
+                  </Button>
+                  <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Version Comparison" subtitle="Compare metrics across versions" />
+              <div className="overflow-hidden rounded-2xl border border-slate-200">
+                <table className="w-full border-collapse text-left text-[length:var(--font-xs)]">
+                  <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
+                    <tr>
+                      {["Metric", "v1.0", "v1.1", "v1.2", "Delta"].map((header) => (
+                        <th key={header} className="px-3 py-2.5">{header}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="text-slate-600">
+                    {versionCompareMetrics.map((row) => (
+                      <tr key={row.metric} className="border-t border-slate-100">
+                        <td className="px-3 py-2.5 font-medium">{row.metric}</td>
+                        <td className="px-3 py-2.5">{row.v10}</td>
+                        <td className="px-3 py-2.5">{row.v11}</td>
+                        <td className="px-3 py-2.5 font-semibold text-primary">{row.v12}</td>
+                        <td className="px-3 py-2.5 font-medium text-emerald-600">{row.delta}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Create New Version" />
+              <FieldGroup label="Version Label">
+                <input className="form-input h-11 rounded-xl" defaultValue="v1.3" type="text" />
+              </FieldGroup>
+              <FieldGroup label="Description">
+                <textarea
+                  className="min-h-[100px] w-full rounded-xl border border-slate-200 p-3 text-[length:var(--font-sm)] outline-none placeholder:text-slate-400 focus:border-primary"
+                  placeholder="Describe what changed in this version..."
+                />
+              </FieldGroup>
+              <CheckRow checked label="Include all current media files" subtitle="Snapshot all images and videos" />
+              <CheckRow checked label="Include annotations" subtitle="Copy all annotation files" />
+              <CheckRow label="Lock previous version" subtitle="Prevent modifications to v1.2" />
+              <Button className="h-12 w-full gap-2">
+                <Save className="h-4 w-4" />
+                Create Version Snapshot
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center justify-between">
+                <SectionHeading title="Recent Changes" />
+                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">View All</button>
+              </div>
+              {[
+                ["AutoLabel completed", "2,400 annotations added automatically", "3h ago"],
+                ["Images verified", "12 images marked as verified", "5h ago"],
+                ["Source added", "New camera source imported", "1 day ago"],
+                ["Split updated", "Re-balanced train/val/test ratio", "2 days ago"],
+              ].map(([title, subtitle, time]) => (
+                <div key={title} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
+                    <Activity className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="ui-card-title">{title}</div>
+                    <div className="ui-meta mt-1">{subtitle}</div>
+                  </div>
+                  <div className="ui-meta">{time}</div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const pipelineNodes = [
+  { id: "1", name: "Data Import", type: "source", status: "Completed", icon: "Upload", duration: "2m 14s" },
+  { id: "2", name: "Preprocessing", type: "transform", status: "Completed", icon: "Settings2", duration: "5m 32s" },
+  { id: "3", name: "Augmentation", type: "transform", status: "Completed", icon: "Sparkles", duration: "8m 01s" },
+  { id: "4", name: "Train / Val Split", type: "transform", status: "Completed", icon: "Copy", duration: "0m 45s" },
+  { id: "5", name: "YOLOv8s Training", type: "training", status: "Running", icon: "Activity", duration: "1h 23m" },
+  { id: "6", name: "Evaluation", type: "evaluation", status: "Pending", icon: "BarChart3", duration: "—" },
+  { id: "7", name: "Model Export", type: "export", status: "Pending", icon: "FileDown", duration: "—" },
+];
+
+const pipelineTemplates = [
+  { name: "YOLO Detection Pipeline", description: "End-to-end object detection training pipeline", steps: 7, duration: "~2h" },
+  { name: "Classification Pipeline", description: "Image classification with data augmentation", steps: 5, duration: "~1h" },
+  { name: "Data Preparation Only", description: "Import, clean and split dataset", steps: 4, duration: "~30m" },
+  { name: "AutoML + Export", description: "Automated model search and ONNX export", steps: 6, duration: "~4h" },
+];
+
+const pipelineHistory = [
+  { name: "YOLO Detection Pipeline", run: "Run #12", status: "Completed", duration: "1h 52m", date: "May 18, 10:32 AM" },
+  { name: "YOLO Detection Pipeline", run: "Run #11", status: "Failed", duration: "45m", date: "May 17, 03:14 PM" },
+  { name: "Classification Pipeline", run: "Run #3", status: "Completed", duration: "58m", date: "May 16, 11:20 AM" },
+  { name: "Data Preparation Only", run: "Run #8", status: "Completed", duration: "22m", date: "May 15, 09:45 AM" },
+];
+
+export function PipelinesPage() {
+  return (
+    <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Pipelines" subtitle="Build, manage and run end-to-end ML workflows" />
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+            <Upload className="h-4 w-4" />
+            Import Pipeline
+          </Button>
+          <Button className="h-11 gap-2">
+            <Plus className="h-4 w-4" />
+            New Pipeline
+          </Button>
+        </div>
+      </div>
+      <TabBar tabs={["Pipeline Editor", "Templates", "Runs", "Schedules"]} active="Pipeline Editor" />
+
+      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <MiniMetricCard icon={Activity} label="Pipeline Status" value="Running" subtitle="Step 5 of 7" accent="text-emerald-500" />
+            <MiniMetricCard icon={Clock3} label="Elapsed Time" value="1h 39m" subtitle="Started 08:53 AM" />
+            <MiniMetricCard icon={Gauge} label="Overall Progress" value="71%" subtitle={<ProgressMini progress={71} />} />
+            <MiniMetricCard icon={Zap} label="Total Runs" value="12" subtitle="8 successful" />
+          </div>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <SectionHeading title="Pipeline Flow" subtitle="YOLO Detection Pipeline" />
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
+                    <Settings2 className="h-4 w-4" />
+                    Configure
+                  </Button>
+                  <SelectStub label="Run #12" />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                {pipelineNodes.map((node, index) => (
+                  <div key={node.id}>
+                    <div className={cn(
+                      "flex items-center gap-4 rounded-2xl border p-4 transition-colors",
+                      node.status === "Running" ? "border-blue-200 bg-blue-50/40" :
+                      node.status === "Completed" ? "border-slate-200 bg-white" :
+                      "border-dashed border-slate-200 bg-slate-50/40",
+                    )}>
+                      <div className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-xl",
+                        node.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
+                        node.status === "Running" ? "bg-blue-50 text-primary" :
+                        "bg-slate-100 text-slate-400",
+                      )}>
+                        {node.status === "Completed" ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : node.status === "Running" ? (
+                          <Activity className="h-5 w-5" />
+                        ) : (
+                          <Clock3 className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="ui-card-title">{node.name}</span>
+                          <Badge tone={
+                            node.status === "Completed" ? "success" :
+                            node.status === "Running" ? "info" : "default"
+                          }>{node.status}</Badge>
+                        </div>
+                        <div className="ui-meta mt-1">Step {node.id} • {node.type} • {node.duration}</div>
+                      </div>
+                      <button className="text-slate-400" type="button">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {index < pipelineNodes.length - 1 ? (
+                      <div className="ml-[30px] flex h-4 items-center">
+                        <div className={cn(
+                          "h-full w-0.5",
+                          node.status === "Completed" ? "bg-emerald-300" : "bg-slate-200",
+                        )} />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <SectionHeading title="Run History" />
+                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">View All</button>
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-200">
+                <table className="w-full border-collapse text-left">
+                  <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
+                    <tr>
+                      {["Pipeline", "Run", "Status", "Duration", "Date", "Actions"].map((header) => (
+                        <th key={header} className="px-4 py-3">{header}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="text-[length:var(--font-sm)] text-slate-600">
+                    {pipelineHistory.map((run) => (
+                      <tr key={`${run.name}-${run.run}`} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-medium">{run.name}</td>
+                        <td className="px-4 py-3">{run.run}</td>
+                        <td className="px-4 py-3">
+                          <Badge tone={run.status === "Failed" ? "danger" : "success"}>{run.status}</Badge>
+                        </td>
+                        <td className="px-4 py-3">{run.duration}</td>
+                        <td className="px-4 py-3">{run.date}</td>
+                        <td className="px-4 py-3 text-slate-400">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Pipeline Controls" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Button className="h-11 gap-2 bg-rose-500 shadow-none hover:bg-rose-600">
+                  <Square className="h-4 w-4" />
+                  Stop
+                </Button>
+                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+                  <Activity className="h-4 w-4" />
+                  Pause
+                </Button>
+                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+                  <Play className="h-4 w-4" />
+                  Restart
+                </Button>
+                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+                  <FileDown className="h-4 w-4" />
+                  Export Logs
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Current Step Details" />
+              <InfoList
+                items={[
+                  ["Step", "5 — YOLOv8s Training"],
+                  ["Model", "YOLOv8s"],
+                  ["Dataset", "Coco Dataset v1.2"],
+                  ["Epoch", "24 / 50"],
+                  ["Best mAP@0.5", "0.89"],
+                  ["Learning Rate", "0.01"],
+                  ["Batch Size", "16"],
+                  ["Device", "GPU 0: RTX 4090"],
+                ]}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center justify-between">
+                <SectionHeading title="Templates" />
+                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">Browse All</button>
+              </div>
+              {pipelineTemplates.map((tpl) => (
+                <div key={tpl.name} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
+                    <Workflow className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="ui-card-title">{tpl.name}</div>
+                    <div className="ui-meta mt-1">{tpl.steps} steps • {tpl.duration}</div>
+                  </div>
+                  <Button variant="secondary" className="h-9 border border-slate-200 bg-white px-3">
+                    Use
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const settingsSections = [
+  {
+    title: "General",
+    items: [
+      { label: "Workspace Name", value: "MLForge Workspace", type: "input" as const },
+      { label: "Description", value: "Primary ML workspace for object detection projects", type: "textarea" as const },
+      { label: "Owner", value: "Admin", type: "input" as const },
+      { label: "Default Task", value: "Object Detection", type: "select" as const },
+    ],
+  },
+  {
+    title: "Storage",
+    items: [
+      { label: "Data Directory", value: "/data/mlforge", type: "path" as const },
+      { label: "Dataset Storage", value: "/data/mlforge/datasets", type: "path" as const },
+      { label: "Model Storage", value: "/data/mlforge/models", type: "path" as const },
+      { label: "Export Directory", value: "/data/mlforge/exports", type: "path" as const },
+    ],
+  },
+];
+
+const settingsToggles = [
+  { label: "Auto-save annotations", subtitle: "Automatically save annotation changes every 30 seconds", checked: true },
+  { label: "Auto-scan sources", subtitle: "Automatically scan dataset sources for new files", checked: true },
+  { label: "Enable video frame extraction", subtitle: "Allow extracting frames from video files in datasets", checked: true },
+  { label: "Show preview thumbnails", subtitle: "Generate and display image previews in media browser", checked: true },
+  { label: "Enable experiment tracking", subtitle: "Track metrics, parameters and artifacts for training runs", checked: false },
+  { label: "Dark mode", subtitle: "Switch to dark color theme", checked: false },
+];
+
+export function SettingsPage() {
+  return (
+    <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+      <PageIntro title="Settings" subtitle="Configure your workspace preferences and integrations" />
+      <TabBar tabs={["General", "Storage", "Training", "Integrations", "Advanced"]} active="General" />
+
+      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          {settingsSections.map((section) => (
+            <Card key={section.title}>
+              <CardContent className="space-y-5 p-4">
+                <SectionHeading title={section.title} />
+                {section.items.map((item) => (
+                  <FieldGroup key={item.label} label={item.label}>
+                    {item.type === "textarea" ? (
+                      <textarea
+                        className="min-h-[80px] w-full rounded-xl border border-slate-200 p-3 text-[length:var(--font-sm)] outline-none placeholder:text-slate-400 focus:border-primary"
+                        defaultValue={item.value}
+                      />
+                    ) : item.type === "select" ? (
+                      <SelectStub label={item.value} className="w-full" />
+                    ) : item.type === "path" ? (
+                      <div className="flex items-center gap-2">
+                        <input className="form-input h-11 flex-1 rounded-xl" defaultValue={item.value} type="text" />
+                        <Button variant="secondary" className="h-11 border border-slate-200 bg-white px-3">
+                          <FolderOpen className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <input className="form-input h-11 rounded-xl" defaultValue={item.value} type="text" />
+                    )}
+                  </FieldGroup>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+
+          <Card>
+            <CardContent className="space-y-5 p-4">
+              <SectionHeading title="Training Defaults" />
+              <div className="grid gap-5 xl:grid-cols-2">
+                <FieldGroup label="Default Model">
+                  <SelectStub label="YOLOv8s" className="w-full" />
+                </FieldGroup>
+                <FieldGroup label="Default Image Size">
+                  <SelectStub label="640 × 640" className="w-full" />
+                </FieldGroup>
+                <FieldGroup label="Default Batch Size">
+                  <input className="form-input h-11 rounded-xl" defaultValue="16" type="text" />
+                </FieldGroup>
+                <FieldGroup label="Default Epochs">
+                  <input className="form-input h-11 rounded-xl" defaultValue="50" type="text" />
+                </FieldGroup>
+                <FieldGroup label="Default Optimizer">
+                  <SelectStub label="SGD" className="w-full" />
+                </FieldGroup>
+                <FieldGroup label="Default Learning Rate">
+                  <input className="form-input h-11 rounded-xl" defaultValue="0.01" type="text" />
+                </FieldGroup>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Features" subtitle="Enable or disable workspace features" />
+              {settingsToggles.map((toggle) => (
+                <div key={toggle.label} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4">
+                  <div>
+                    <div className="text-[length:var(--font-md)] font-medium text-slate-700">{toggle.label}</div>
+                    <div className="ui-meta mt-1">{toggle.subtitle}</div>
+                  </div>
+                  <div className={cn(
+                    "flex h-7 w-12 cursor-pointer items-center rounded-full px-1 transition-colors",
+                    toggle.checked ? "bg-primary" : "bg-slate-200",
+                  )}>
+                    <div className={cn(
+                      "h-5 w-5 rounded-full bg-white shadow transition-transform",
+                      toggle.checked ? "translate-x-5" : "translate-x-0",
+                    )} />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-between gap-3 pb-4">
+            <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+              <TimerReset className="h-4 w-4" />
+              Reset to Defaults
+            </Button>
+            <Button className="h-11 gap-2 px-6">
+              <Save className="h-4 w-4" />
+              Save Settings
+            </Button>
+          </div>
+        </div>
+
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="System Information" />
+              <InfoList
+                items={[
+                  ["Version", "MLForge v2.0.1"],
+                  ["Python", "3.11.9"],
+                  ["Backend", "FastAPI 0.115"],
+                  ["Database", "SQLite"],
+                  ["OS", "Windows 11"],
+                  ["GPU", "NVIDIA RTX 4090"],
+                  ["VRAM", "24 GB"],
+                  ["CUDA", "12.4"],
+                  ["PyTorch", "2.4.0"],
+                ]}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Integrations" />
+              {[
+                { name: "Weights & Biases", status: "Not Connected", connected: false },
+                { name: "MLflow Tracking", status: "Not Connected", connected: false },
+                { name: "TensorBoard", status: "Connected", connected: true },
+                { name: "DVC (Data Version Control)", status: "Not Connected", connected: false },
+              ].map((integration) => (
+                <div key={integration.name} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+                  <div className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-xl",
+                    integration.connected ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400",
+                  )}>
+                    <Cpu className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="ui-card-title">{integration.name}</div>
+                    <div className="ui-meta mt-1">{integration.status}</div>
+                  </div>
+                  <Button variant="secondary" className={cn(
+                    "h-9 border px-3",
+                    integration.connected ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-slate-200 bg-white",
+                  )}>
+                    {integration.connected ? "Connected" : "Connect"}
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Danger Zone" />
+              <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/30 p-4">
+                <div className="text-[length:var(--font-md)] font-medium text-rose-700">Delete Workspace</div>
+                <div className="text-[length:var(--font-sm)] text-rose-500">
+                  This action cannot be undone. All projects, datasets and models will be permanently removed.
+                </div>
+                <Button variant="secondary" className="h-11 gap-2 border border-rose-300 bg-white text-rose-600 hover:bg-rose-50">
+                  Delete Workspace
+                </Button>
               </div>
             </CardContent>
           </Card>

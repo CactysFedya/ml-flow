@@ -5,7 +5,7 @@ import json
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from math import ceil
 from pathlib import Path
 from re import sub
@@ -737,7 +737,7 @@ def extract_dataset_source_frames(
         extracted_paths.extend(saved_paths)
 
     source_record.frame_count += frames_saved
-    source_record.updated_at = datetime.utcnow()
+    source_record.updated_at = datetime.now(timezone.utc)
     if extracted_paths:
         _append_dataset_media_paths(record, extracted_paths)
     _apply_scan_to_record(record, _scan_dataset_record(record))
@@ -975,7 +975,7 @@ def upload_dataset_assets(
     _add_dataset_source_record(
         db,
         record,
-        name=f"Upload {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
+        name=f"Upload {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
         source_type="upload",
         source_path="browser upload",
         target_path=str(root),
@@ -2595,7 +2595,7 @@ def _add_dataset_event(db: Session, dataset_id: int, event_type: str, title: str
             event_type=event_type,
             title=title,
             description=description,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
     )
 

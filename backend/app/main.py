@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.db.base import Base
 from app.db.session import engine
-from app.models import Dataset, DatasetEventRecord, DatasetRecord, DatasetSourceRecord, Experiment, Project, ProjectRecord  # noqa: F401
+from app.models import Dataset, DatasetEventRecord, DatasetRecord, DatasetSourceRecord, Experiment, ModelRecord, PipelineRecord, PipelineRunRecord, PipelineStepRecord, Project, ProjectRecord, SettingRecord, TrainingRun  # noqa: F401
 
 
 def create_app() -> FastAPI:

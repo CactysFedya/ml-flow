@@ -11,10 +11,12 @@ import { ProjectsPage } from "@/components/workspace/projects-page";
 import {
   AutoLabelPage,
   AutoMLPage,
-  ComingSoonPage,
   ExperimentsPage,
   ModelsPage,
+  PipelinesPage,
+  SettingsPage,
   TrainingPage,
+  VersionsPage,
 } from "@/components/workspace/showcase-pages";
 import type { AppPage } from "@/types/navigation";
 import type { DatasetItem, ProjectSummary } from "@/types/workspace";
@@ -146,11 +148,11 @@ function renderPage(
     case "models":
       return <ModelsPage />;
     case "versions":
-      return <ComingSoonPage title="Versions" description="Version management screen is scaffolded next and can be connected to the dataset workflow after the UI pass." />;
+      return <VersionsPage />;
     case "pipelines":
-      return <ComingSoonPage title="Pipelines" description="Pipeline orchestration layout can now be added on top of the shared shell without changing the rest of the app." />;
+      return <PipelinesPage />;
     case "settings":
-      return <ComingSoonPage title="Settings" description="Workspace settings will be easier to wire once the visual system for the new sections is in place." />;
+      return <SettingsPage />;
     default:
       return <DashboardPage />;
   }
