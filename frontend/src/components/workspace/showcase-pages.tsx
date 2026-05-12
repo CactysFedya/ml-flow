@@ -130,28 +130,9 @@ const experimentLossData = Array.from({ length: 11 }, (_, index) => ({
   cls: Math.max(0.08, 0.5 - index * 0.03),
 }));
 
-const modelSparkline = [
-  { point: 0, value: 0.58 },
-  { point: 1, value: 0.6 },
-  { point: 2, value: 0.59 },
-  { point: 3, value: 0.64 },
-  { point: 4, value: 0.66 },
-  { point: 5, value: 0.63 },
-  { point: 6, value: 0.7 },
-  { point: 7, value: 0.73 },
-  { point: 8, value: 0.69 },
-  { point: 9, value: 0.75 },
-  { point: 10, value: 0.71 },
-  { point: 11, value: 0.73 },
-];
 
-const trainingRows = [
-  ["24 (current)", "0.89", "0.71", "0.92", "0.87", "0.42", "0.31", "0.18", "02:31"],
-  ["23", "0.88", "0.70", "0.91", "0.86", "0.47", "0.33", "0.19", "02:29"],
-  ["22", "0.87", "0.69", "0.90", "0.85", "0.51", "0.36", "0.21", "02:30"],
-  ["21", "0.92", "0.72", "0.93", "0.88", "0.45", "0.32", "0.17", "02:32"],
-  ["20", "0.90", "0.71", "0.91", "0.87", "0.48", "0.34", "0.18", "02:31"],
-];
+
+
 
 const labelingDatasets = [
   {
@@ -204,123 +185,11 @@ const labelingDatasets = [
   },
 ];
 
-const automlRuns = [
-  ["1", "Run #12", "YOLOv8s", "0.912", "0.672", "0.934", "0.881", "11.2M", "200", "45m 12s", "Completed"],
-  ["2", "Run #08", "YOLOv8m", "0.901", "0.658", "0.927", "0.873", "25.9M", "200", "52m 18s", "Completed"],
-  ["3", "Run #05", "YOLOv8s", "0.885", "0.641", "0.912", "0.856", "11.2M", "150", "36m 07s", "Completed"],
-  ["4", "Run #19", "YOLOv8n", "0.872", "0.612", "0.901", "0.841", "3.2M", "200", "28m 33s", "Completed"],
-  ["5", "Run #03", "YOLOv8m", "0.869", "0.607", "0.899", "0.835", "25.9M", "150", "39m 21s", "Completed"],
-  ["6", "Run #21", "YOLOv8l", "0.861", "0.598", "0.892", "0.829", "43.7M", "200", "1h 02m", "Running"],
-];
 
-const experiments = [
-  ["YOLOv8s - AutoML Run #12", "AutoML", "YOLOv8s", "Coco Dataset v1.2", "0.912", "", "Completed", "May 18, 10:32 AM", "45m 12s"],
-  ["YOLOv8m - Baseline", "Training", "YOLOv8m", "Coco Dataset v1.2", "0.901", "-1.2%", "Completed", "May 18, 09:41 AM", "52m 18s"],
-  ["YOLOv8s - Augmented", "Training", "YOLOv8s", "Coco Dataset v1.2", "0.885", "-3.0%", "Completed", "May 18, 08:15 AM", "36m 07s"],
-  ["YOLOv8n - Fast", "Training", "YOLOv8n", "Coco Dataset v1.2", "0.872", "-4.4%", "Completed", "May 18, 11:20 AM", "28m 33s"],
-  ["YOLOv8x - High Accuracy", "Training", "YOLOv8x", "Coco Dataset v1.2", "0.846", "-7.2%", "Failed", "May 17, 05:22 PM", "1h 12m"],
-  ["YOLOv8s - Long Training", "Training", "YOLOv8s", "Coco Dataset v1.2", "-", "", "Running", "May 18, 01:15 PM", "2h 15m"],
-  ["YOLOv8n - Quick Test", "Training", "YOLOv8n", "Coco Dataset v1.2", "-", "", "Running", "May 18, 02:05 PM", "1h 02m"],
-  ["YOLOv8m - Hyperparam Search", "AutoML", "YOLOv8m", "Coco Dataset v1.2", "-", "", "Failed", "May 17, 03:48 PM", "38m 56s"],
-];
 
-const models = [
-  {
-    name: "YOLOv8s - Best Model",
-    status: "Ready",
-    type: "Object Detection",
-    model: "YOLOv8s",
-    framework: "PyTorch",
-    dataset: "Coco Dataset v1.2",
-    source: "Run #12 (AutoML)",
-    created: "May 18, 2025",
-    size: "28.7 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.912",
-    precision: "0.934",
-    recall: "0.881",
-    f1: "0.906",
-    action: "Deploy",
-    palette: ["#203A62", "#2C5E9E", "#506C8E", "#405A7F"],
-  },
-  {
-    name: "YOLOv8m - High Recall",
-    status: "Ready",
-    type: "Object Detection",
-    model: "YOLOv8m",
-    framework: "PyTorch",
-    dataset: "Coco Dataset v1.2",
-    source: "Run #08 (Training)",
-    created: "May 18, 2025",
-    size: "51.2 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.901",
-    precision: "0.927",
-    recall: "0.912",
-    f1: "0.919",
-    action: "Deploy",
-    palette: ["#203A62", "#2C5E9E", "#506C8E", "#405A7F"],
-  },
-  {
-    name: "ResNet50 - Image Classification",
-    status: "Ready",
-    type: "Image Classification",
-    model: "ResNet50",
-    framework: "PyTorch",
-    dataset: "Birds Dataset v1.0",
-    source: "Run #21 (Training)",
-    created: "May 17, 2025",
-    size: "98.4 MB",
-    version: "v1.0.0",
-    metricLabel: "Top-1 Accuracy",
-    metricValue: "0.962",
-    precision: "0.988",
-    recall: "0.961",
-    f1: "0.962",
-    action: "Deploy",
-    palette: ["#677B5A", "#8FA06D", "#C5B891", "#5F6F55"],
-  },
-  {
-    name: "YOLOv8n - Fast Inference",
-    status: "Ready",
-    type: "Object Detection",
-    model: "YOLOv8n",
-    framework: "PyTorch",
-    dataset: "Coco Dataset v1.2",
-    source: "Run #19 (Training)",
-    created: "May 17, 2025",
-    size: "6.1 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.872",
-    precision: "0.899",
-    recall: "0.841",
-    f1: "0.869",
-    action: "Deploy",
-    palette: ["#425162", "#5C6772", "#29303A", "#717D88"],
-  },
-  {
-    name: "YOLOv8s - Product Detection",
-    status: "Archived",
-    type: "Object Detection",
-    model: "YOLOv8s",
-    framework: "PyTorch",
-    dataset: "Product Dataset v1.1",
-    source: "Run #15 (Training)",
-    created: "May 16, 2025",
-    size: "26.3 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.846",
-    precision: "0.868",
-    recall: "0.809",
-    f1: "0.838",
-    action: "Download",
-    palette: ["#A28153", "#D2C4AE", "#8E7756", "#B6B0A6"],
-  },
-];
+
+
+
 
 export function LabelingPage() {
   return (
@@ -573,15 +442,15 @@ export function AutoLabelPage() {
             <CardContent className="space-y-4 p-4">
               <SectionHeading title="Dataset Summary" subtitle="Split to process" />
               <div className="grid gap-4 md:grid-cols-4">
-                <SplitCard title="Train" subtitle="94,000 images" active />
-                <SplitCard title="Validation" subtitle="12,000 images" />
-                <SplitCard title="Test" subtitle="12,000 images" />
+                <SplitCard title="Train" subtitle={selectedDataset ? `${Math.round(selectedDataset.stats.images * 0.8)} images` : "— images"} active />
+                <SplitCard title="Validation" subtitle={selectedDataset ? `${Math.round(selectedDataset.stats.images * 0.1)} images` : "— images"} />
+                <SplitCard title="Test" subtitle={selectedDataset ? `${Math.round(selectedDataset.stats.images * 0.1)} images` : "— images"} />
                 <SplitCard title="Custom" subtitle="Select specific images" />
               </div>
               <div className="grid gap-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4 md:grid-cols-3">
-                <SummaryInfo label="Estimated time" value="~1h 24m" subtitle="Estimated based on your hardware and settings" />
-                <SummaryInfo label="Processing Speed" value="~12 images/sec" subtitle="On NVIDIA GeForce RTX 4060 Ti" />
-                <SummaryInfo label="Storage Required" value="~24.5 GB" subtitle="For annotations and metadata" />
+                <SummaryInfo label="Estimated time" value={selectedDataset ? `~${Math.max(1, Math.round(selectedDataset.stats.images / 720))}m` : "—"} subtitle="Estimated based on your hardware and settings" />
+                <SummaryInfo label="Processing Speed" value="~12 images/sec" subtitle="Estimated speed" />
+                <SummaryInfo label="Images to process" value={selectedDataset ? String(selectedDataset.stats.images) : "0"} subtitle="Total images in dataset" />
               </div>
             </CardContent>
           </Card>
@@ -756,12 +625,12 @@ export function TrainingPage() {
 
           <Card>
             <CardContent className="p-4">
-              <SectionHeading title="Training Progress" />
+              <SectionHeading title="Training Runs" />
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
                 <table className="w-full border-collapse text-left">
                   <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
                     <tr>
-                      {["Epoch", "mAP@0.5", "mAP@0.5:0.95", "Precision", "Recall", "Box Loss", "Obj Loss", "Cls Loss", "Time"].map((header) => (
+                      {["Name", "Model", "Epochs", "Best mAP@0.5", "Precision", "Status", "Duration", "Actions"].map((header) => (
                         <th key={header} className="px-4 py-3">
                           {header}
                         </th>
@@ -769,29 +638,29 @@ export function TrainingPage() {
                     </tr>
                   </thead>
                   <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                    {trainingRows.map((row) => (
-                      <tr key={row[0]} className="border-t border-slate-100">
-                        {row.map((cell, index) => (
-                          <td
-                            key={`${row[0]}-${index}`}
-                            className={cn(
-                              "px-4 py-3",
-                              row[0].includes("current") && index === 0 && "font-semibold text-primary",
-                              row[0] === "21" && index > 0 && index < 8 && "font-semibold text-emerald-600",
-                            )}
-                          >
-                            {cell}
-                          </td>
-                        ))}
+                    {runs.length === 0 && !isLoading ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No training runs yet. Click &quot;New Training&quot; to start.</td>
+                      </tr>
+                    ) : runs.map((run) => (
+                      <tr key={run.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-semibold text-primary">{run.name}</td>
+                        <td className="px-4 py-3">{run.model_name}</td>
+                        <td className="px-4 py-3">{run.current_epoch} / {run.epochs}</td>
+                        <td className="px-4 py-3 font-medium text-emerald-600">{run.best_map50.toFixed(3)}</td>
+                        <td className="px-4 py-3">{run.precision.toFixed(3)}</td>
+                        <td className="px-4 py-3"><Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge></td>
+                        <td className="px-4 py-3">{Math.floor(run.elapsed_seconds / 60)}m {run.elapsed_seconds % 60}s</td>
+                        <td className="px-4 py-3">
+                          <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deleteRun.mutate(run.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <button className="mt-4 inline-flex items-center gap-2 text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                Show more
-                <ChevronDown className="h-4 w-4" />
-              </button>
             </CardContent>
           </Card>
         </div>
@@ -927,12 +796,12 @@ export function AutoMLPage() {
 
           <Card>
             <CardContent className="p-4">
-              <SectionHeading title="Top Runs" />
+              <SectionHeading title="Runs" />
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
                 <table className="w-full border-collapse text-left">
                   <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
                     <tr>
-                      {["Rank", "Run", "Model", "mAP@0.5", "mAP@0.5:0.95", "Precision", "Recall", "Params", "Epochs", "Time", "Status"].map((header) => (
+                      {["#", "Name", "Model", "mAP@0.5", "Precision", "Epochs", "Status", "Duration"].map((header) => (
                         <th key={header} className="px-4 py-3">
                           {header}
                         </th>
@@ -940,22 +809,25 @@ export function AutoMLPage() {
                     </tr>
                   </thead>
                   <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                    {automlRuns.map((row) => (
-                      <tr key={row[1]} className="border-t border-slate-100">
-                        {row.map((cell, index) => (
-                          <td key={`${row[1]}-${index}`} className="px-4 py-3">
-                            {index === 10 ? <Badge tone={cell === "Running" ? "info" : "success"}>{cell}</Badge> : cell}
-                          </td>
-                        ))}
+                    {runs.length === 0 && !isLoading ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No runs yet. Click &quot;Start AutoML Run&quot; to begin.</td>
+                      </tr>
+                    ) : [...runs].sort((a, b) => b.best_map50 - a.best_map50).map((run, idx) => (
+                      <tr key={run.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-medium">{idx + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-primary">{run.name}</td>
+                        <td className="px-4 py-3">{run.model_name}</td>
+                        <td className="px-4 py-3 font-medium text-emerald-600">{run.best_map50.toFixed(3)}</td>
+                        <td className="px-4 py-3">{run.precision.toFixed(3)}</td>
+                        <td className="px-4 py-3">{run.current_epoch} / {run.epochs}</td>
+                        <td className="px-4 py-3"><Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge></td>
+                        <td className="px-4 py-3">{Math.floor(run.elapsed_seconds / 60)}m {run.elapsed_seconds % 60}s</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <button className="mt-4 inline-flex items-center gap-2 text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                View all runs
-                <ArrowRight className="h-4 w-4" />
-              </button>
             </CardContent>
           </Card>
 
@@ -1090,28 +962,19 @@ export function AutoMLPage() {
 
           <Card>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <SectionHeading title="Recent AutoML Runs" />
-                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                  View All
-                </button>
-              </div>
-              {[
-                ["AutoML Run #24", "YOLOv8s • 18 / 30 trials", "Running"],
-                ["AutoML Run #23", "YOLOv8m • 30 / 30 trials", "Completed"],
-                ["AutoML Run #22", "YOLOv8n • 30 / 30 trials", "Completed"],
-                ["AutoML Run #21", "YOLOv8l • 22 / 30 trials", "Failed"],
-                ["AutoML Run #20", "YOLOv8s • 30 / 30 trials", "Completed"],
-              ].map(([title, subtitle, status]) => (
-                <div key={title} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+              <SectionHeading title="Recent Runs" />
+              {runs.length === 0 ? (
+                <div className="py-4 text-center text-[length:var(--font-sm)] text-slate-400">No runs yet</div>
+              ) : runs.slice(0, 5).map((run) => (
+                <div key={run.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="ui-card-title truncate">{title}</div>
-                    <div className="ui-meta mt-1">{subtitle}</div>
+                    <div className="ui-card-title truncate">{run.name}</div>
+                    <div className="ui-meta mt-1">{run.model_name} • {run.current_epoch}/{run.epochs} epochs</div>
                   </div>
-                  <Badge tone={status === "Failed" ? "danger" : status === "Running" ? "info" : "success"}>{status}</Badge>
+                  <Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge>
                 </div>
               ))}
             </CardContent>
@@ -1233,6 +1096,7 @@ export function ExperimentsPage() {
               </CardContent>
             </Card>
 
+            {bestRun && (
             <Card>
               <CardContent className="space-y-4 p-4">
                 <TabBar tabs={["Metrics", "Charts", "System", "Artifacts", "Logs", "Config", "Notes"]} active="Metrics" />
@@ -1241,23 +1105,15 @@ export function ExperimentsPage() {
                     <CardContent className="space-y-3 p-4">
                       <div className="ui-card-title">Key Metrics (Best)</div>
                       {[
-                        ["mAP@0.5", "0.912", "↑ 2.1%"],
-                        ["mAP@0.5:0.95", "0.672", "↑ 1.8%"],
-                        ["Precision", "0.934", "↑ 1.4%"],
-                        ["Recall", "0.881", "↑ 1.6%"],
-                        ["F1 Score", "0.906", "↑ 1.7%"],
-                      ].map(([label, value, delta]) => (
+                        ["mAP@0.5", bestRun.best_map50.toFixed(3)],
+                        ["Precision", bestRun.precision.toFixed(3)],
+                        ["Recall", bestRun.recall.toFixed(3)],
+                      ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between text-[length:var(--font-sm)]">
                           <span className="text-slate-500">{label}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="font-semibold text-slate-900">{value}</span>
-                            <span className="text-emerald-600">{delta}</span>
-                          </div>
+                          <span className="font-semibold text-slate-900">{value}</span>
                         </div>
                       ))}
-                      <Button variant="secondary" className="h-10 w-full border border-slate-200 bg-white">
-                        View All Metrics
-                      </Button>
                     </CardContent>
                   </Card>
 
@@ -1305,72 +1161,43 @@ export function ExperimentsPage() {
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
 
           <div className="min-h-0 space-y-4 overflow-auto pr-1">
             <Card>
               <CardContent className="space-y-4 p-4">
-                <div className="flex items-start justify-between">
-                  <SectionHeading title="Selected Experiment" />
-                  <button className="text-slate-400" type="button">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                </div>
-                <div>
-                  <div className="ui-stat-value">YOLOv8s - AutoML Run #12</div>
-                  <div className="ui-meta mt-1">ID: exp_8f3d2a1e</div>
-                </div>
-                <InfoList
-                  items={[
-                    ["Type", "AutoML"],
-                    ["Model", "YOLOv8s"],
-                    ["Dataset", "Coco Dataset v1.2"],
-                    ["Created At", "May 18, 2025, 10:32 AM"],
-                    ["Duration", "45m 12s"],
-                    ["Best mAP@0.5", "0.912"],
-                  ]}
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button variant="secondary" className="h-11 gap-2 border border-blue-200 bg-blue-50 text-primary">
-                    <Play className="h-4 w-4" />
-                    Open in Training
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Activity className="h-4 w-4" />
-                    Compare
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-3 p-4">
-                <SectionHeading title="Latest Artifact" />
-                <div className="rounded-2xl border border-slate-100 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50">
-                      <FileText className="h-5 w-5 text-slate-500" />
+                <SectionHeading title="Selected Experiment" />
+                {bestRun ? (
+                  <>
+                    <div>
+                      <div className="ui-stat-value">{bestRun.name}</div>
+                      <div className="ui-meta mt-1">ID: run_{bestRun.id}</div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="ui-card-title">best.pt</div>
-                      <div className="ui-meta mt-1">Size: 28.7 MB • Updated: May 18, 10:59 AM</div>
+                    <InfoList
+                      items={[
+                        ["Model", bestRun.model_name],
+                        ["Epochs", `${bestRun.current_epoch} / ${bestRun.epochs}`],
+                        ["Status", bestRun.status],
+                        ["Created At", new Date(bestRun.created_at).toLocaleString()],
+                        ["Duration", `${Math.floor(bestRun.elapsed_seconds / 60)}m ${bestRun.elapsed_seconds % 60}s`],
+                        ["Best mAP@0.5", bestRun.best_map50.toFixed(3)],
+                      ]}
+                    />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Button variant="secondary" className="h-11 gap-2 border border-blue-200 bg-blue-50 text-primary">
+                        <Play className="h-4 w-4" />
+                        Open in Training
+                      </Button>
+                      <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+                        <Activity className="h-4 w-4" />
+                        Compare
+                      </Button>
                     </div>
-                    <Badge tone="success">Best Model</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-3 p-4">
-                <SectionHeading title="Tags" />
-                <div className="flex flex-wrap gap-2">
-                  {["yolov8s", "automl", "baseline", "coco", "exp12"].map((tag) => (
-                    <span key={tag} className="rounded-lg bg-slate-50 px-3 py-1.5 text-[length:var(--font-sm)] font-medium text-slate-600">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  <div className="py-4 text-center text-[length:var(--font-sm)] text-slate-400">No experiment selected</div>
+                )}
               </CardContent>
             </Card>
 
@@ -1434,232 +1261,104 @@ export function ModelsPage() {
             </Button>
           </div>
 
-          {apiModels.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <SectionHeading title={`Registered Models (${apiModels.length})`} />
-                <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-                  <table className="w-full border-collapse text-left">
-                    <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
-                      <tr>
-                        {["Name", "Architecture", "Framework", "Status", "mAP@0.5", "Precision", "Recall", "Actions"].map((h) => (
-                          <th key={h} className="px-4 py-3">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                      {apiModels.map((m) => (
-                        <tr key={m.id} className="border-t border-slate-100">
-                          <td className="px-4 py-3 font-semibold text-primary">{m.name}</td>
-                          <td className="px-4 py-3">{m.architecture || "—"}</td>
-                          <td className="px-4 py-3">{m.framework || "—"}</td>
-                          <td className="px-4 py-3"><Badge tone={m.status === "Production" ? "success" : "default"}>{m.status}</Badge></td>
-                          <td className="px-4 py-3 font-medium text-emerald-600">{m.map50 ? m.map50.toFixed(3) : "—"}</td>
-                          <td className="px-4 py-3">{m.precision ? m.precision.toFixed(3) : "—"}</td>
-                          <td className="px-4 py-3">{m.recall ? m.recall.toFixed(3) : "—"}</td>
-                          <td className="px-4 py-3">
-                            <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deleteModelMut.mutate(m.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
+          <Card>
+            <CardContent className="p-4">
+              <SectionHeading title={`Models (${apiModels.length})`} />
+              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+                <table className="w-full border-collapse text-left">
+                  <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
+                    <tr>
+                      {["Name", "Architecture", "Framework", "Status", "mAP@0.5", "Precision", "Recall", "Actions"].map((h) => (
+                        <th key={h} className="px-4 py-3">{h}</th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {models.map((model) => (
-            <Card key={model.name}>
-              <CardContent className="flex gap-4 p-4">
-                <div className="w-[132px]">
-                  <ModelCover palette={model.palette} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="mb-2 flex items-center gap-2">
-                        {model.name.includes("Best Model") ? <Badge tone="warning">Best Model</Badge> : null}
-                        <Badge tone={model.status === "Archived" ? "default" : "success"}>{model.status}</Badge>
-                      </div>
-                      <div className="ui-section-title">{model.name}</div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:var(--font-sm)] text-slate-500">
-                        <span>{model.type}</span>
-                        <span>•</span>
-                        <span>{model.model}</span>
-                        <span>•</span>
-                        <span>{model.framework}</span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[length:var(--font-xs)]">
-                        <span className="rounded-lg bg-blue-50 px-2.5 py-1 font-medium text-primary">{model.dataset}</span>
-                        <span className="rounded-lg bg-slate-50 px-2.5 py-1 font-medium text-slate-500">{model.source}</span>
-                      </div>
-                      <div className="ui-meta mt-3">
-                        Created: {model.created} • Size: {model.size} • {model.version}
-                      </div>
-                    </div>
-                    <button className="text-slate-400" type="button">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 xl:grid-cols-[220px_90px_90px_90px_1fr_160px]">
-                    <MetricBlock label={model.metricLabel} value={model.metricValue} />
-                    <MetricBlock label="Precision" value={model.precision} compact />
-                    <MetricBlock label="Recall" value={model.recall} compact />
-                    <MetricBlock label="F1 Score" value={model.f1} compact />
-                    <ChartPanel className="h-[80px] border border-slate-100">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={modelSparkline}>
-                          <defs>
-                            <linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="0%" stopColor="#4ADE80" stopOpacity={0.26} />
-                              <stop offset="100%" stopColor="#4ADE80" stopOpacity={0.02} />
-                            </linearGradient>
-                          </defs>
-                          <Area dataKey="value" fill="url(#sparkFill)" stroke="#22C55E" strokeWidth={2} type="monotone" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </ChartPanel>
-                    <div className="space-y-2">
-                      <Button className="h-9 w-full gap-2 px-4">
-                        <Rocket className="h-4 w-4" />
-                        {model.action}
-                      </Button>
-                      <div className="grid grid-cols-[1fr_42px] gap-2">
-                        <Button variant="secondary" className="h-9 gap-2 border border-slate-200 bg-white">
-                          <Activity className="h-4 w-4" />
-                          Evaluate
-                        </Button>
-                        <Button variant="secondary" className="h-9 border border-slate-200 bg-white px-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          <div className="flex items-center justify-between pb-2 text-[length:var(--font-xs)] text-slate-400">
-            <span>Showing 1 to 5 of 42 models</span>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3].map((page) => (
-                <button
-                  key={page}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-lg border text-[length:var(--font-sm)]",
-                    page === 1 ? "border-blue-200 bg-blue-50 text-primary" : "border-slate-200 bg-white text-slate-500",
-                  )}
-                  type="button"
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
-          </div>
+                    </tr>
+                  </thead>
+                  <tbody className="text-[length:var(--font-sm)] text-slate-600">
+                    {apiModels.length === 0 && !modelsLoading ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No models registered yet. Click &quot;Register Model&quot; to add one.</td>
+                      </tr>
+                    ) : apiModels.map((m) => (
+                      <tr key={m.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-semibold text-primary">{m.name}</td>
+                        <td className="px-4 py-3">{m.architecture || "—"}</td>
+                        <td className="px-4 py-3">{m.framework || "—"}</td>
+                        <td className="px-4 py-3"><Badge tone={m.status === "Production" ? "success" : "default"}>{m.status}</Badge></td>
+                        <td className="px-4 py-3 font-medium text-emerald-600">{m.map50 ? m.map50.toFixed(3) : "—"}</td>
+                        <td className="px-4 py-3">{m.precision ? m.precision.toFixed(3) : "—"}</td>
+                        <td className="px-4 py-3">{m.recall ? m.recall.toFixed(3) : "—"}</td>
+                        <td className="px-4 py-3">
+                          <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deleteModelMut.mutate(m.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {apiModels.length > 0 && (
+                <div className="mt-3 text-[length:var(--font-xs)] text-slate-400">Showing {apiModels.length} model{apiModels.length !== 1 ? "s" : ""}</div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-start justify-between">
-                <SectionHeading title="Selected Model" />
-                <button className="text-slate-400" type="button">
-                  ×
-                </button>
-              </div>
-              <div className="flex gap-3">
-                <div className="w-[66px]">
-                  <ModelCover palette={models[0].palette} compact />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Badge tone="warning">Best Model</Badge>
-                    <Badge tone="success">Ready</Badge>
+              <SectionHeading title="Selected Model" />
+              {apiModels.length > 0 ? (
+                <>
+                  <div>
+                    <div className="ui-stat-value">{apiModels[0].name}</div>
+                    <div className="ui-meta mt-1">ID: mdl_{apiModels[0].id}</div>
                   </div>
-                  <div className="ui-stat-value mt-2">{models[0].name}</div>
-                  <div className="ui-meta mt-1">ID: mdl_01JXZG6AK2P3Q7T6E0M5</div>
-                </div>
-              </div>
-              <InfoList
-                items={[
-                  ["Type", models[0].type],
-                  ["Framework", models[0].framework],
-                  ["Model", models[0].model],
-                  ["Dataset", models[0].dataset],
-                  ["Source", "AutoML Run #12"],
-                  ["Created At", "May 18, 2025, 10:32 AM"],
-                  ["Updated At", "May 18, 2025, 10:32 AM"],
-                  ["Size", models[0].size],
-                  ["File", "best.pt"],
-                ]}
-              />
-              <Card className="border border-slate-200 shadow-none">
-                <CardContent className="p-4">
-                  <SectionHeading title="Performance (Test Set)" />
-                  <div className="mt-4 grid gap-2 text-[length:var(--font-sm)]">
-                    {[
-                      ["mAP@0.5", "0.912"],
-                      ["mAP@0.5:0.95", "0.672"],
-                      ["Precision", "0.934"],
-                      ["Recall", "0.881"],
-                      ["F1 Score", "0.906"],
-                    ].map(([label, value]) => (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className="text-slate-500">{label}</span>
-                        <span className="font-semibold text-emerald-600">{value}</span>
-                      </div>
-                    ))}
+                  <InfoList
+                    items={[
+                      ["Type", apiModels[0].model_type || "—"],
+                      ["Framework", apiModels[0].framework || "—"],
+                      ["Architecture", apiModels[0].architecture || "—"],
+                      ["Status", apiModels[0].status],
+                      ["Created At", new Date(apiModels[0].created_at).toLocaleString()],
+                    ]}
+                  />
+                  {(apiModels[0].map50 || apiModels[0].precision || apiModels[0].recall) && (
+                    <Card className="border border-slate-200 shadow-none">
+                      <CardContent className="p-4">
+                        <SectionHeading title="Performance" />
+                        <div className="mt-4 grid gap-2 text-[length:var(--font-sm)]">
+                          {[
+                            ["mAP@0.5", apiModels[0].map50?.toFixed(3)],
+                            ["Precision", apiModels[0].precision?.toFixed(3)],
+                            ["Recall", apiModels[0].recall?.toFixed(3)],
+                          ].filter(([, v]) => v).map(([label, value]) => (
+                            <div key={label} className="flex items-center justify-between">
+                              <span className="text-slate-500">{label}</span>
+                              <span className="font-semibold text-emerald-600">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  <div className="space-y-3">
+                    <SectionHeading title="Actions" />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+                        <Download className="h-4 w-4" />
+                        Download
+                      </Button>
+                      <Button variant="secondary" className="h-11 gap-2 border border-rose-200 bg-rose-50 text-rose-500 hover:bg-rose-100" onClick={() => deleteModelMut.mutate(apiModels[0].id)}>
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-                  <button className="mt-4 text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                    View all metrics
-                  </button>
-                </CardContent>
-              </Card>
-              <div className="space-y-3">
-                <SectionHeading title="Actions" />
-                <Button className="h-11 w-full gap-2">
-                  <Rocket className="h-4 w-4" />
-                  Deploy Model
-                </Button>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Activity className="h-4 w-4" />
-                    Evaluate on Dataset
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Download className="h-4 w-4" />
-                    Download Model
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Upload className="h-4 w-4" />
-                    Export
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-rose-200 bg-rose-50 text-rose-500 hover:bg-rose-100">
-                    Delete Model
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <SectionHeading title="Related" />
-                {[
-                  ["Experiment", "AutoML Run #12"],
-                  ["Dataset", "Coco Dataset v1.2"],
-                  ["Logs", "View training logs"],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between text-[length:var(--font-sm)]">
-                    <span className="text-slate-500">{label}</span>
-                    <button className="inline-flex items-center gap-2 font-medium text-primary" type="button">
-                      {value}
-                      <ArrowUpRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                </>
+              ) : (
+                <div className="py-4 text-center text-[length:var(--font-sm)] text-slate-400">No model selected</div>
+              )}
             </CardContent>
           </Card>
         </div>

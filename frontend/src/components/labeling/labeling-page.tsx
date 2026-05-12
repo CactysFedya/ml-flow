@@ -1328,25 +1328,32 @@ function LabelingEditor({ datasetId, onBack }: { datasetId: number; onBack: () =
 
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-[length:var(--font-xs)] text-slate-500">
-            <button className="inline-flex items-center gap-1 font-semibold text-primary" onClick={() => void handleBack()} type="button">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to datasets
-            </button>
-            <span>/</span>
-            <span>
-              {dataset.name} {dataset.version}
-            </span>
-            <span>/</span>
-            <span>{selectedMedia?.name ?? "No image selected"}</span>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50" onClick={() => void handleBack()} type="button">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-[length:var(--font-lg)] font-bold text-slate-950">
+                {dataset.name} {dataset.version}
+              </h1>
+              <Badge tone={dataset.status === "Ready" ? "success" : "warning"}>{dataset.status}</Badge>
+            </div>
+            <div className="mt-0.5 flex items-center gap-2 text-[length:var(--font-xs)] text-slate-500">
+              <span>{selectedMedia?.name ?? "No image selected"}</span>
+              {selectedMedia && (
+                <>
+                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+                  <span>{selectedMedia.width ?? "?"} x {selectedMedia.height ?? "?"}</span>
+                </>
+              )}
+              <span className="h-1 w-1 rounded-full bg-slate-300" />
+              <span>{annotations.length} objects</span>
+            </div>
           </div>
-          <h1 className="ui-title">Labeling</h1>
-          <p className="ui-subtitle mt-1">Use dataset labels, tags, and review status to prepare versioned annotations for training.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={dataset.status === "Ready" ? "success" : "warning"}>{dataset.status}</Badge>
           <Badge tone={saveAnnotation.isPending ? "warning" : lastSaveFailed ? "warning" : dirty ? "warning" : "default"}>
             {saveAnnotation.isPending ? "Saving..." : lastSaveFailed ? "Save failed" : dirty ? "Unsaved changes" : "Saved"}
           </Badge>
@@ -1354,8 +1361,8 @@ function LabelingEditor({ datasetId, onBack }: { datasetId: number; onBack: () =
         </div>
       </div>
 
-      <Card className="overflow-hidden">
-        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+      <Card className="overflow-hidden border-slate-200/80 shadow-sm">
+        <CardContent className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/50 p-2.5">
           <Button className="h-9 gap-2" disabled={!navigationItems.length || navigationIndex <= 0} onClick={() => void navigateImage(-1)} variant="secondary">
             <ChevronLeft className="h-4 w-4" />
             Previous
@@ -1597,26 +1604,10 @@ function LabelingEditor({ datasetId, onBack }: { datasetId: number; onBack: () =
         </Card>
 
         <Card className="min-h-0 overflow-hidden">
-          <CardContent className="flex h-full min-h-0 flex-col p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <div className="ui-section-title">Annotation Canvas</div>
-                <div className="ui-meta mt-1">
-                  {selectedMedia
-                    ? `${selectedMedia.name} • ${selectedMedia.width ?? "?"} x ${selectedMedia.height ?? "?"}`
-                    : "No image selected"}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-[length:var(--font-xs)] text-slate-500">
-                <span>{annotations.length} objects</span>
-                <span className="h-1 w-1 rounded-full bg-slate-300" />
-                <span>{imageTags.length} tags</span>
-              </div>
-            </div>
-
+          <CardContent className="flex h-full min-h-0 flex-col p-2">
             <div
               ref={containerRef}
-              className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-950/95"
+              className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-[#0f1117]"
               onMouseDown={beginCanvasInteraction}
               onWheel={handleWheel}
               style={{ cursor: interaction?.type === "pan" ? "grabbing" : activeTool === "pan" ? "grab" : selectedClassId != null ? "crosshair" : "default" }}
