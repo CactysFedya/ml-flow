@@ -1,0 +1,273 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --shell-sidebar: clamp(138px, 8.8vw, 158px);
+    --shell-header-h: clamp(50px, 3vw, 56px);
+    --shell-pad: clamp(8px, 0.75vw, 14px);
+    --shell-pad-sm: clamp(6px, 0.55vw, 10px);
+    --page-max: 100%;
+    --page-gap: clamp(8px, 0.78vw, 14px);
+    --page-gap-sm: clamp(6px, 0.58vw, 10px);
+    --page-inline: clamp(8px, 0.75vw, 14px);
+    --panel-radius: clamp(12px, 0.8vw, 16px);
+    --panel-radius-sm: clamp(8px, 0.65vw, 11px);
+    --panel-pad: clamp(10px, 0.8vw, 15px);
+    --panel-pad-sm: clamp(8px, 0.62vw, 11px);
+    --control-h: clamp(30px, 1.8vw, 34px);
+    --control-h-sm: clamp(24px, 1.35vw, 28px);
+    --control-px: clamp(9px, 0.72vw, 13px);
+    --font-2xs: clamp(10px, 0.62vw, 11px);
+    --font-xs: clamp(10px, 0.68vw, 11px);
+    --font-sm: clamp(11px, 0.74vw, 12px);
+    --font-md: clamp(12px, 0.84vw, 13px);
+    --font-lg: clamp(13px, 0.92vw, 15px);
+    --font-xl: clamp(15px, 1.05vw, 20px);
+    --font-stat: clamp(21px, 1.42vw, 28px);
+    --kpi-min: clamp(132px, 10.8vw, 172px);
+    --panel-lg: clamp(180px, 23vh, 252px);
+    --panel-md: clamp(156px, 19vh, 216px);
+    --panel-sm: clamp(106px, 13vh, 146px);
+    --empty-min: clamp(68px, 8vh, 104px);
+    --table-x: clamp(12px, 1vw, 16px);
+    --table-y: clamp(10px, 0.82vw, 14px);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-size: var(--font-sm);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image: linear-gradient(180deg, #f4f7fb 0%, #f7f9fc 100%);
+    font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    font-size: var(--font-sm);
+    line-height: 1.45;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100dvh;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .panel-card {
+    border-radius: var(--panel-radius);
+    @apply border border-slate-200/60 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.035)];
+  }
+
+  .soft-divider {
+    @apply border-slate-200/80;
+  }
+
+  .sidebar-item-active {
+    background: linear-gradient(180deg, #edf4ff 0%, #e8f1ff 100%);
+  }
+
+  .summary-icon {
+    height: clamp(34px, 2.2vw, 40px);
+    width: clamp(34px, 2.2vw, 40px);
+    @apply flex items-center justify-center rounded-full bg-[#EEF4FF] text-primary;
+  }
+
+  .form-input {
+    min-height: var(--control-h-sm);
+    padding-inline: var(--control-px);
+    font-size: var(--font-sm);
+    border-radius: var(--panel-radius-sm);
+    @apply w-full border border-slate-200 bg-white outline-none placeholder:text-slate-400 focus:border-primary;
+  }
+
+  .form-select {
+    min-height: var(--control-h-sm);
+    padding-inline: var(--control-px);
+    font-size: var(--font-sm);
+    border-radius: var(--panel-radius-sm);
+    @apply border border-slate-200 bg-white outline-none focus:border-primary;
+  }
+
+  .ui-page {
+    width: min(100%, var(--page-max));
+    height: 100%;
+    min-height: 0;
+    margin-inline: auto;
+    display: grid;
+    gap: var(--page-gap);
+    align-content: start;
+    overflow: hidden;
+  }
+
+  .ui-page-tight {
+    gap: var(--page-gap-sm);
+  }
+
+  .ui-page-centered {
+    width: min(100%, 980px);
+    margin-inline: auto;
+  }
+
+  .ui-title {
+    font-size: var(--font-xl);
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    @apply font-bold text-slate-900;
+  }
+
+  .ui-subtitle {
+    font-size: var(--font-md);
+    @apply text-slate-500;
+  }
+
+  .ui-section-title {
+    font-size: var(--font-lg);
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+    @apply font-semibold text-slate-900;
+  }
+
+  .ui-card-title {
+    font-size: var(--font-md);
+    line-height: 1.25;
+    @apply font-semibold text-slate-900;
+  }
+
+  .ui-label {
+    font-size: var(--font-sm);
+    @apply font-medium text-slate-500;
+  }
+
+  .ui-meta {
+    font-size: var(--font-xs);
+    @apply text-slate-400;
+  }
+
+  .ui-stat-value {
+    font-size: var(--font-stat);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    @apply font-bold text-slate-900;
+  }
+
+  .ui-panel-pad {
+    padding: var(--panel-pad);
+  }
+
+  .ui-panel-pad-sm {
+    padding: var(--panel-pad-sm);
+  }
+
+  .ui-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--kpi-min)), 1fr));
+    gap: var(--page-gap);
+  }
+
+  .ui-two-col {
+    display: grid;
+    gap: var(--page-gap);
+  }
+
+  @media (min-width: 1280px) {
+    .ui-two-col {
+      grid-template-columns: minmax(0, 1.52fr) minmax(320px, 0.95fr);
+    }
+  }
+
+  .ui-three-col {
+    display: grid;
+    gap: var(--page-gap);
+  }
+
+  @media (min-width: 1280px) {
+    .ui-three-col {
+      grid-template-columns: minmax(0, 1.62fr) minmax(260px, 0.9fr) minmax(240px, 0.86fr);
+    }
+  }
+
+  .ui-bottom-split {
+    display: grid;
+    gap: var(--page-gap);
+  }
+
+  @media (min-width: 1280px) {
+    .ui-bottom-split {
+      grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
+    }
+  }
+
+  .ui-panel-lg {
+    min-height: var(--panel-lg);
+  }
+
+  .ui-panel-md {
+    min-height: var(--panel-md);
+  }
+
+  .ui-panel-sm {
+    min-height: var(--panel-sm);
+  }
+
+  .ui-empty-state {
+    min-height: var(--empty-min);
+  }
+
+  .ui-dashboard-grid {
+    height: 100%;
+    grid-template-rows: auto auto minmax(0, 0.94fr) minmax(0, 0.88fr) minmax(0, 0.56fr);
+    overflow: hidden;
+  }
+
+  .ui-control {
+    min-height: var(--control-h);
+    padding-inline: var(--control-px);
+    border-radius: var(--panel-radius-sm);
+    font-size: var(--font-sm);
+  }
+
+  .ui-control-sm {
+    min-height: var(--control-h-sm);
+    padding-inline: clamp(10px, 0.8vw, 14px);
+    border-radius: var(--panel-radius-sm);
+    font-size: var(--font-xs);
+  }
+
+  .ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+
+  .ui-table thead th {
+    padding: var(--table-y) var(--table-x);
+    font-size: var(--font-2xs);
+    letter-spacing: 0.08em;
+    @apply font-semibold uppercase text-slate-400;
+  }
+
+  .ui-table tbody td {
+    padding: var(--table-y) var(--table-x);
+    font-size: var(--font-sm);
+    @apply text-slate-600;
+  }
+
+  .ui-chip {
+    min-height: var(--control-h-sm);
+    border-radius: var(--panel-radius-sm);
+    padding-inline: clamp(10px, 0.8vw, 14px);
+    font-size: var(--font-xs);
+    @apply inline-flex items-center border border-slate-200 bg-white font-medium text-slate-600;
+  }
+}

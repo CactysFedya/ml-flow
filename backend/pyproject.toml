@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlforge-v2-backend"
+version = "0.1.0"
+description = "MLForge v2 backend"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "python-multipart>=0.0.9",
+  "uvicorn>=0.30",
+  "sqlalchemy>=2.0",
+  "pydantic>=2.8",
+  "opencv-python-headless>=4.9",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

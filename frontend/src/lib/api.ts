@@ -1,0 +1,339 @@
+import type { DashboardPayload } from "@/types/dashboard";
+import type {
+  DatasetAnnotationItem,
+  DatasetAnnotationShape,
+  DatasetClassItem,
+  DatasetCreatePayload,
+  DatasetEventItem,
+  DatasetExportSummary,
+  DatasetMediaBulkPayload,
+  DatasetMediaBulkSummary,
+  DatasetFrameExtractionSummary,
+  DatasetImportPayload,
+  DatasetItem,
+  DatasetMediaItem,
+  DatasetSourceAddSummary,
+  DatasetSourceCreatePayload,
+  DatasetSourceItem,
+  DatasetSplitItem,
+  DatasetTagCatalogItem,
+  DatasetUpdatePayload,
+  DatasetUploadSummary,
+  DatasetVideoPlanSummary,
+  DatasetVersionCreatePayload,
+  DatasetVersionSummary,
+  ProjectCreatePayload,
+  ProjectDetail,
+  ProjectSummary,
+  ProjectUpdatePayload,
+} from "@/types/workspace";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8001/api";
+const API_ROOT_URL = API_BASE_URL.replace(/\/api\/?$/, "");
+
+export async function getDashboard(filters?: { datasetId?: number | null; projectId?: number | null }): Promise<DashboardPayload> {
+  const params = new URLSearchParams();
+  if (filters?.projectId != null) {
+    params.set("project_id", String(filters.projectId));
+  }
+  if (filters?.datasetId != null) {
+    params.set("dataset_id", String(filters.datasetId));
+  }
+
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/dashboard${query ? `?${query}` : ""}`);
+
+  if (!response.ok) {
+    throw new Error(`Dashboard request failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<DashboardPayload>;
+}
+
+export async function getProjects(): Promise<ProjectSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/projects`);
+  return readJson<ProjectSummary[]>(response, "Projects request failed");
+}
+
+export async function getProject(projectId: number): Promise<ProjectDetail> {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}`);
+  return readJson<ProjectDetail>(response, "Project request failed");
+}
+
+export async function createProject(payload: ProjectCreatePayload): Promise<ProjectDetail> {
+  const response = await fetch(`${API_BASE_URL}/projects`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<ProjectDetail>(response, "Create project request failed");
+}
+
+export async function updateProject(projectId: number, payload: ProjectUpdatePayload): Promise<ProjectDetail> {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
+  return readJson<ProjectDetail>(response, "Update project request failed");
+}
+
+export async function deleteProject(projectId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete project request failed: ${response.status}`);
+  }
+}
+
+export async function openProjectFolder(projectId: number): Promise<{ status: string; path: string }> {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/open-folder`, { method: "POST" });
+  return readJson<{ status: string; path: string }>(response, "Open project folder request failed");
+}
+
+export async function getDatasets(): Promise<DatasetItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets`);
+  return readJson<DatasetItem[]>(response, "Datasets request failed");
+}
+
+export async function getDataset(datasetId: number): Promise<DatasetItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}`);
+  return readJson<DatasetItem>(response, "Dataset request failed");
+}
+
+export async function getDatasetMedia(datasetId: number): Promise<DatasetMediaItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/media?limit=1000`);
+  const items = await readJson<DatasetMediaItem[]>(response, "Dataset media request failed");
+  return items.map((item) => ({
+    ...item,
+    preview_url: item.preview_url?.startsWith("/api/") ? `${API_ROOT_URL}${item.preview_url}` : item.preview_url,
+  }));
+}
+
+export async function getDatasetAnnotation(datasetId: number, path: string): Promise<DatasetAnnotationItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/annotations?path=${encodeURIComponent(path)}`);
+  return readJson<DatasetAnnotationItem>(response, "Dataset annotation request failed");
+}
+
+export async function saveDatasetAnnotation(
+  datasetId: number,
+  payload: { path: string; annotations: DatasetAnnotationShape[]; verified: boolean; tags: string[] },
+): Promise<DatasetAnnotationItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/annotations`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "PUT",
+  });
+  return readJson<DatasetAnnotationItem>(response, "Save annotation request failed");
+}
+
+export async function getDatasetTagCatalog(datasetId: number): Promise<DatasetTagCatalogItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/tags`);
+  return readJson<DatasetTagCatalogItem>(response, "Dataset tag catalog request failed");
+}
+
+export async function updateDatasetTagCatalog(datasetId: number, tags: string[]): Promise<DatasetTagCatalogItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/tags`, {
+    body: JSON.stringify({ tags }),
+    headers: { "Content-Type": "application/json" },
+    method: "PUT",
+  });
+  return readJson<DatasetTagCatalogItem>(response, "Update dataset tag catalog request failed");
+}
+
+export async function deleteDatasetMedia(datasetId: number, path: string): Promise<DatasetItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/media?path=${encodeURIComponent(path)}`, { method: "DELETE" });
+  return readJson<DatasetItem>(response, "Delete media request failed");
+}
+
+export async function applyDatasetMediaBulkAction(datasetId: number, payload: DatasetMediaBulkPayload): Promise<DatasetMediaBulkSummary> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/media/bulk`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetMediaBulkSummary>(response, "Bulk media action request failed");
+}
+
+export async function getDatasetClasses(datasetId: number): Promise<DatasetClassItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/classes`);
+  return readJson<DatasetClassItem[]>(response, "Dataset classes request failed");
+}
+
+export async function addDatasetClass(datasetId: number, name: string): Promise<DatasetClassItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/classes`, {
+    body: JSON.stringify({ name }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetClassItem[]>(response, "Add class request failed");
+}
+
+export async function importDatasetClasses(datasetId: number, classes: string[], mode = "append"): Promise<DatasetClassItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/classes/import`, {
+    body: JSON.stringify({ classes, mode }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetClassItem[]>(response, "Import classes request failed");
+}
+
+export async function getDatasetSplits(datasetId: number): Promise<DatasetSplitItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/splits`);
+  return readJson<DatasetSplitItem[]>(response, "Dataset splits request failed");
+}
+
+export async function addDatasetSplit(datasetId: number, name: string, description = ""): Promise<DatasetSplitItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/splits`, {
+    body: JSON.stringify({ name, description }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetSplitItem[]>(response, "Add split request failed");
+}
+
+export async function getDatasetEvents(datasetId: number): Promise<DatasetEventItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/events`);
+  return readJson<DatasetEventItem[]>(response, "Dataset history request failed");
+}
+
+export async function getDatasetSources(datasetId: number): Promise<DatasetSourceItem[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/sources`);
+  return readJson<DatasetSourceItem[]>(response, "Dataset sources request failed");
+}
+
+export async function addDatasetSource(datasetId: number, payload: DatasetSourceCreatePayload): Promise<DatasetSourceAddSummary> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/sources`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetSourceAddSummary>(response, "Add source request failed");
+}
+
+export async function previewDatasetSourceVideoPlan(
+  datasetId: number,
+  payload: { source_path: string; frame_interval: number; split_policy: string },
+): Promise<DatasetVideoPlanSummary> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/sources/video-plan`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetVideoPlanSummary>(response, "Video plan request failed");
+}
+
+export async function extractDatasetSourceFrames(
+  datasetId: number,
+  sourceId: number,
+  payload: { frame_interval: number },
+): Promise<DatasetFrameExtractionSummary> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/sources/${sourceId}/extract-frames`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetFrameExtractionSummary>(response, "Extract frames request failed");
+}
+
+export async function createDatasetVersion(datasetId: number, payload: DatasetVersionCreatePayload): Promise<DatasetItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/versions`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetItem>(response, "Create dataset version request failed");
+}
+
+export async function getDatasetVersions(datasetId: number): Promise<DatasetVersionSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/versions`);
+  return readJson<DatasetVersionSummary[]>(response, "Dataset versions request failed");
+}
+
+export async function rebuildDatasetVersionManifest(datasetId: number): Promise<DatasetVersionSummary> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/versions/rebuild-manifest`, {
+    method: "POST",
+  });
+  return readJson<DatasetVersionSummary>(response, "Rebuild version manifest request failed");
+}
+
+export async function exportDatasetVersionYolo(datasetId: number): Promise<DatasetExportSummary> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/versions/export-yolo`, {
+    method: "POST",
+  });
+  return readJson<DatasetExportSummary>(response, "YOLO export request failed");
+}
+
+export async function uploadDatasetAssets(
+  datasetId: number,
+  files: File[],
+  options: { extractVideoFrames: boolean; frameInterval: number; splitPolicy: string },
+): Promise<DatasetUploadSummary> {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  formData.append("extract_video_frames", String(options.extractVideoFrames));
+  formData.append("frame_interval", String(options.frameInterval));
+  formData.append("split_policy", options.splitPolicy);
+
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/assets`, {
+    body: formData,
+    method: "POST",
+  });
+  return readJson<DatasetUploadSummary>(response, "Upload assets request failed");
+}
+
+export async function createDataset(payload: DatasetCreatePayload): Promise<DatasetItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetItem>(response, "Create dataset request failed");
+}
+
+export async function importDataset(payload: DatasetImportPayload): Promise<DatasetItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/import`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<DatasetItem>(response, "Import dataset request failed");
+}
+
+export async function updateDataset(datasetId: number, payload: DatasetUpdatePayload): Promise<DatasetItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
+  return readJson<DatasetItem>(response, "Update dataset request failed");
+}
+
+export async function rescanDataset(datasetId: number): Promise<DatasetItem> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/rescan`, { method: "POST" });
+  return readJson<DatasetItem>(response, "Rescan dataset request failed");
+}
+
+export async function deleteDataset(datasetId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete dataset request failed: ${response.status}`);
+  }
+}
+
+export async function openDatasetFolder(datasetId: number): Promise<{ status: string; path: string }> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/open-folder`, { method: "POST" });
+  return readJson<{ status: string; path: string }>(response, "Open folder request failed");
+}
+
+async function readJson<T>(response: Response, fallback: string): Promise<T> {
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `${fallback}: ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
