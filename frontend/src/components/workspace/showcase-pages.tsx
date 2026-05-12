@@ -1,10 +1,9 @@
-import { useState, useCallback, type ReactNode } from "react";
+import React, { useState, useCallback, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   ArrowRight,
-  ArrowUpRight,
   Bot,
-  Boxes,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -28,7 +27,6 @@ import {
   MoreHorizontal,
   Play,
   Plus,
-  Rocket,
   Save,
   Search,
   Settings2,
@@ -37,24 +35,10 @@ import {
   Sparkles,
   Square,
   TimerReset,
-  Upload,
   Workflow,
   Trash2,
   Zap,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,132 +50,12 @@ import { useDatasets } from "@/hooks/useDatasets";
 import { useTrainingRuns, useCreateTrainingRun, useDeleteTrainingRun } from "@/hooks/useTraining";
 import { useModels, useCreateModel, useDeleteModel } from "@/hooks/useModels";
 import type { SettingItem, TrainingRunItem, ModelItem as ApiModelItem } from "@/lib/api";
-
-const trainingMetricData = [
-  { epoch: 0, train: 0.08, val: 0.04 },
-  { epoch: 4, train: 0.44, val: 0.31 },
-  { epoch: 8, train: 0.6, val: 0.46 },
-  { epoch: 12, train: 0.69, val: 0.56 },
-  { epoch: 16, train: 0.79, val: 0.63 },
-  { epoch: 20, train: 0.83, val: 0.69 },
-  { epoch: 24, train: 0.89, val: 0.78 },
-  { epoch: 28, train: 0.9, val: 0.73 },
-  { epoch: 32, train: 0.92, val: 0.78 },
-  { epoch: 36, train: 0.93, val: 0.74 },
-  { epoch: 40, train: 0.94, val: 0.79 },
-  { epoch: 44, train: 0.95, val: 0.76 },
-  { epoch: 48, train: 0.94, val: 0.78 },
-  { epoch: 50, train: 0.95, val: 0.77 },
-];
-
-const trainingLossData = [
-  { epoch: 0, box: 2.4, object: 2.0, cls: 1.8 },
-  { epoch: 3, box: 1.52, object: 1.3, cls: 0.72 },
-  { epoch: 6, box: 1.18, object: 0.95, cls: 0.42 },
-  { epoch: 10, box: 0.92, object: 0.72, cls: 0.26 },
-  { epoch: 16, box: 0.7, object: 0.52, cls: 0.18 },
-  { epoch: 22, box: 0.58, object: 0.42, cls: 0.13 },
-  { epoch: 30, box: 0.48, object: 0.33, cls: 0.11 },
-  { epoch: 40, box: 0.4, object: 0.26, cls: 0.09 },
-  { epoch: 50, box: 0.34, object: 0.21, cls: 0.07 },
-];
-
-const automlPerformanceData = [
-  { time: "08:00", y8s: 0.52, y8m: 0.44, y8n: 0.25, y8l: 0.34 },
-  { time: "08:30", y8s: 0.73, y8m: 0.58, y8n: 0.42, y8l: 0.58 },
-  { time: "09:00", y8s: 0.77, y8m: 0.61, y8n: 0.48, y8l: 0.7 },
-  { time: "09:30", y8s: 0.76, y8m: 0.63, y8n: 0.5, y8l: 0.75 },
-  { time: "10:00", y8s: 0.8, y8m: 0.65, y8n: 0.52, y8l: 0.78 },
-  { time: "11:00", y8s: 0.81, y8m: 0.67, y8n: 0.53, y8l: 0.79 },
-  { time: "12:00", y8s: 0.82, y8m: 0.68, y8n: 0.54, y8l: 0.8 },
-  { time: "13:00", y8s: 0.82, y8m: 0.69, y8n: 0.54, y8l: 0.8 },
-  { time: "14:00", y8s: 0.82, y8m: 0.69, y8n: 0.54, y8l: 0.8 },
-];
-
-const automlScatterData = [
-  { label: "YOLOv8n", params: 3.2, map: 0.54, size: 80 },
-  { label: "YOLOv8s", params: 11.2, map: 0.68, size: 120 },
-  { label: "YOLOv8m", params: 25.9, map: 0.66, size: 150 },
-  { label: "YOLOv8l", params: 43.7, map: 0.76, size: 110 },
-  { label: "YOLOv8x", params: 68.1, map: 0.8, size: 95 },
-  { label: "YOLOv9e", params: 112, map: 0.55, size: 100 },
-  { label: "RT-DETR", params: 450, map: 0.78, size: 130 },
-];
-
-const experimentMapData = Array.from({ length: 20 }, (_, index) => ({
-  epoch: (index + 1) * 10,
-  value: 0.42 + Math.min(index * 0.035, 0.6) + (index > 10 ? 0.01 : 0),
-}));
-
-const experimentLossData = Array.from({ length: 11 }, (_, index) => ({
-  epoch: index * 20,
-  box: Math.max(0.52, 1.3 - index * 0.08),
-  obj: Math.max(0.22, 0.82 - index * 0.06),
-  cls: Math.max(0.08, 0.5 - index * 0.03),
-}));
-
-
-
-
-
-const labelingDatasets = [
-  {
-    name: "Coco Dataset v1.2",
-    status: "Ready",
-    task: "Object Detection",
-    format: "YOLO Format",
-    description: "High quality object detection dataset collected from urban scenarios.",
-    images: "118,000",
-    classes: "80",
-    annotated: "94,400",
-    size: "68.4 GB",
-    progress: 80,
-    split: "Train / Val / Test (94k / 12k / 12k)",
-    lastUsed: "2 hours ago",
-    action: "Continue Labeling",
-    palette: ["#203A62", "#2C5E9E", "#506C8E", "#405A7F", "#1F3855", "#6B88A6", "#35506F", "#7993AF", "#263A58"],
-  },
-  {
-    name: "Custom Dataset v1.0",
-    status: "Draft",
-    task: "Image Classification",
-    format: "Folder Structure",
-    description: "Custom classification dataset for training baseline models.",
-    images: "25,000",
-    classes: "15",
-    annotated: "7,200",
-    size: "12.7 GB",
-    progress: 28,
-    split: "Train / Val / Test (20k / 2.5k / 2.5k)",
-    lastUsed: "3 days ago",
-    action: "Start Labeling",
-    palette: ["#7E7D52", "#3F5744", "#8C815B", "#5B6A52", "#746E49", "#6C7C62", "#554E37", "#8D7448", "#4F5C43"],
-  },
-  {
-    name: "Product Dataset v2.1",
-    status: "Ready",
-    task: "Object Detection",
-    format: "YOLO Format",
-    description: "E-commerce product detection dataset with high quality annotations.",
-    images: "10,500",
-    classes: "35",
-    annotated: "10,050",
-    size: "8.2 GB",
-    progress: 96,
-    split: "Train / Val / Test (8.4k / 1.05k / 1.05k)",
-    lastUsed: "1 week ago",
-    action: "Continue Labeling",
-    palette: ["#56595B", "#BAA77D", "#D1CCBE", "#7F7B72", "#E3E0D8", "#3E4042", "#8A714D", "#A49682", "#C9B79D"],
-  },
-];
-
-
-
-
-
+import { resetDatabase } from "@/lib/api";
 
 
 export function LabelingPage() {
+  const { data: datasets = [], isLoading } = useDatasets();
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <PageIntro title="Labeling" subtitle="Select a dataset to start or continue annotation" />
@@ -202,85 +66,69 @@ export function LabelingPage() {
           <SearchField placeholder="Search datasets..." className="min-w-[280px] flex-1 xl:max-w-[420px]" />
           <SelectStub label="All Tasks" />
           <SelectStub label="All Status" />
-          <SelectStub label="All Splits" />
           <SelectStub label="Sort: Recently Used" className="ml-auto" />
-          <IconSquare>
-            <SlidersHorizontal className="h-4 w-4" />
-          </IconSquare>
         </div>
       </div>
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(250px,280px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
-          {labelingDatasets.map((dataset) => (
-            <Card key={dataset.name}>
-              <CardContent className="flex gap-5 p-4">
-                <ThumbnailMosaic palette={dataset.palette} label={`+${dataset.images.replace(",000", "K")}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className="ui-section-title">{dataset.name}</h3>
-                        <Badge tone={dataset.status === "Ready" ? "success" : "warning"}>{dataset.status}</Badge>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-[length:var(--font-sm)] text-slate-500">
-                        <span>{dataset.task}</span>
-                        <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>{dataset.format}</span>
-                      </div>
-                      <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">{dataset.description}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="ui-meta">Last used: {dataset.lastUsed}</span>
-                      <button className="text-slate-400" type="button">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
-                    <StatInline icon={FileImage} value={dataset.images} label="Images" />
-                    <StatInline icon={Layers3} value={dataset.classes} label="Classes" />
-                    <StatInline icon={CheckCircle2} value={dataset.annotated} label="Annotated" />
-                    <StatInline icon={HardDrive} value={dataset.size} label="Size" />
-                  </div>
-
-                  <div className="mt-5 flex items-end justify-between gap-4 border-t border-slate-100 pt-4">
-                    <div className="flex-1">
-                      <div className="mb-2 flex items-center justify-between text-[length:var(--font-sm)]">
-                        <span className="font-medium text-slate-600">Progress</span>
-                        <span className="text-slate-500">
-                          {dataset.progress}% ({dataset.annotated} / {dataset.images})
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-100">
-                        <div
-                          className={cn(
-                            "h-full rounded-full",
-                            dataset.progress > 70 ? "bg-emerald-500" : dataset.progress > 40 ? "bg-blue-500" : "bg-amber-500",
-                          )}
-                          style={{ width: `${dataset.progress}%` }}
-                        />
-                      </div>
-                      <div className="mt-3 text-[length:var(--font-sm)] text-slate-500">Split: {dataset.split}</div>
-                    </div>
-                    <div className="flex min-w-[162px] flex-col gap-3">
-                      <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                        <FolderOpen className="h-4 w-4" />
-                        Open Images
-                      </Button>
-                      <Button className="h-11 gap-2">
-                        <Play className="h-4 w-4" />
-                        {dataset.action}
-                      </Button>
-                    </div>
-                  </div>
+          {isLoading ? (
+            <div className="py-12 text-center text-slate-400">Loading datasets...</div>
+          ) : datasets.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <ImageIcon className="h-8 w-8 text-slate-400" />
                 </div>
+                <h3 className="ui-section-title">No datasets yet</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a dataset in the Datasets page first, then come back here to start labeling.</p>
               </CardContent>
             </Card>
-          ))}
+          ) : datasets.map((dataset) => {
+            const imgCount = dataset.stats.images;
+            const annCount = dataset.stats.annotations;
+            const progress = imgCount > 0 ? Math.round((annCount / imgCount) * 100) : 0;
+            return (
+              <Card key={dataset.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <h3 className="ui-section-title">{dataset.name} {dataset.version}</h3>
+                      <Badge tone={dataset.status === "Ready" ? "success" : "warning"}>{dataset.status}</Badge>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[length:var(--font-sm)] text-slate-500">
+                    <span>{dataset.task}</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{dataset.format}</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
+                    <StatInline icon={FileImage} value={String(imgCount)} label="Images" />
+                    <StatInline icon={Layers3} value={String(dataset.stats.classes)} label="Classes" />
+                    <StatInline icon={CheckCircle2} value={String(annCount)} label="Annotations" />
+                    <StatInline icon={HardDrive} value={`${progress}%`} label="Progress" />
+                  </div>
+                  <div className="mt-4 border-t border-slate-100 pt-4">
+                    <div className="mb-2 flex items-center justify-between text-[length:var(--font-sm)]">
+                      <span className="font-medium text-slate-600">Annotation Progress</span>
+                      <span className="text-slate-500">{progress}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100">
+                      <div
+                        className={cn(
+                          "h-full rounded-full",
+                          progress > 70 ? "bg-emerald-500" : progress > 40 ? "bg-blue-500" : "bg-amber-500",
+                        )}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
 
-          <div className="ui-meta pb-2 text-center">Showing 1 to 3 of 3 datasets</div>
+          {datasets.length > 0 && <div className="ui-meta pb-2 text-center">Showing {datasets.length} dataset{datasets.length !== 1 ? "s" : ""}</div>}
         </div>
 
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
@@ -290,19 +138,7 @@ export function LabelingPage() {
               ["How to annotate", "Best practices and guidelines"],
               ["Keyboard Shortcuts", "Speed up your labeling"],
               ["Annotation Standards", "Project-specific rules"],
-              ["Video Tutorials", "Step-by-step guides"],
             ]}
-          />
-          <SidebarInfoCard
-            title="Recent Activity"
-            action="View All"
-            items={[
-              ["Coco Dataset v1.2", "Annotated 200 images", "2 hours ago"],
-              ["Custom Dataset v1.0", "Annotated 150 images", "1 day ago"],
-              ["Product Dataset v2.1", "Annotated 500 images", "1 week ago"],
-              ["Coco Dataset v1.2", "Annotated 300 images", "1 week ago"],
-            ]}
-            compact
           />
           <Card>
             <CardContent className="space-y-4 p-4">
@@ -310,10 +146,7 @@ export function LabelingPage() {
                 <Sparkles className="h-4 w-4 text-violet-500" />
                 <h3 className="ui-section-title">Tips</h3>
               </div>
-              <p className="text-[length:var(--font-sm)] leading-6 text-slate-500">Use keyboard shortcuts to speed up annotation process</p>
-              <Button variant="secondary" className="h-10 border border-blue-200 bg-blue-50 text-primary">
-                View Shortcuts
-              </Button>
+              <p className="text-[length:var(--font-sm)] leading-6 text-slate-500">Use keyboard shortcuts to speed up annotation. Press Ctrl+Z to undo, arrow keys to navigate.</p>
             </CardContent>
           </Card>
         </div>
@@ -561,63 +394,22 @@ export function TrainingPage() {
           <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Training Metrics" />
-                  <div className="flex items-center gap-2">
-                    <SelectStub label="mAP@0.5" />
-                    <IconSquare active>
-                      <Activity className="h-4 w-4" />
-                    </IconSquare>
-                    <IconSquare>
-                      <ListFilter className="h-4 w-4" />
-                    </IconSquare>
-                    <IconSquare>
-                      <ArrowUpRight className="h-4 w-4" />
-                    </IconSquare>
-                  </div>
-                </div>
+                <SectionHeading title="Training Metrics" />
                 <ChartPanel className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trainingMetricData}>
-                      <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                      <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <YAxis axisLine={false} domain={[0, 1]} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <Tooltip />
-                      <Line dataKey="train" dot={false} name="mAP@0.5" stroke="#2F6DF6" strokeWidth={2.5} type="monotone" />
-                      <Line dataKey="val" dot={false} name="mAP@0.5 (val)" stroke="#8CB1FF" strokeDasharray="4 4" strokeWidth={2.2} type="monotone" />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No metrics yet. Metrics will appear after a training run completes.
+                  </div>
                 </ChartPanel>
-                <div className="mt-3 flex items-center justify-center gap-5 text-[length:var(--font-xs)] text-slate-500">
-                  <LegendDot color="#2F6DF6" label="mAP@0.5" />
-                  <LegendDot color="#8CB1FF" label="mAP@0.5 (val)" dashed />
-                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Loss Curves" />
-                  <SelectStub label="All Losses" />
-                </div>
-                <div className="mb-2 flex flex-wrap items-center justify-end gap-5 text-[length:var(--font-xs)] text-slate-500">
-                  <LegendDot color="#2F6DF6" label="Box Loss" />
-                  <LegendDot color="#9B6CFF" label="Object Loss" />
-                  <LegendDot color="#22C55E" label="Class Loss" />
-                </div>
+                <SectionHeading title="Loss Curves" />
                 <ChartPanel className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trainingLossData}>
-                      <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                      <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <YAxis axisLine={false} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <Tooltip />
-                      <Line dataKey="box" dot={false} stroke="#2F6DF6" strokeWidth={2.4} type="monotone" />
-                      <Line dataKey="object" dot={false} stroke="#9B6CFF" strokeWidth={2.4} type="monotone" />
-                      <Line dataKey="cls" dot={false} stroke="#22C55E" strokeWidth={2.4} type="monotone" />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No loss data yet. Loss curves will appear during training.
+                  </div>
                 </ChartPanel>
               </CardContent>
             </Card>
@@ -716,35 +508,10 @@ export function TrainingPage() {
 
           <Card>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <SectionHeading title="Recent Checkpoints" />
-                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                  View all
-                </button>
+              <SectionHeading title="Recent Checkpoints" />
+              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
+                No checkpoints yet. Checkpoints will appear during training.
               </div>
-              {[
-                ["epoch_24.pt", "Latest", "10:24:31 AM", "128.4 MB"],
-                ["epoch_20.pt", "", "10:15:12 AM", "128.1 MB"],
-                ["epoch_15.pt", "", "10:05:43 AM", "127.8 MB"],
-              ].map(([name, badge, time, size]) => (
-                <div key={name} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="ui-card-title truncate">{name}</div>
-                      {badge ? <Badge tone="success">{badge}</Badge> : null}
-                    </div>
-                    <div className="ui-meta mt-1">
-                      {time} • {size}
-                    </div>
-                  </div>
-                  <button className="text-slate-400" type="button">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
             </CardContent>
           </Card>
         </div>
@@ -831,87 +598,26 @@ export function AutoMLPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr_280px]">
+          <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Performance Over Time" />
-                  <SelectStub label="mAP@0.5" />
-                </div>
+                <SectionHeading title="Performance Over Time" />
                 <ChartPanel className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={automlPerformanceData}>
-                      <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                      <XAxis axisLine={false} dataKey="time" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <YAxis axisLine={false} domain={[0, 1]} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <Tooltip />
-                      <Line dataKey="y8s" dot={false} stroke="#2F6DF6" strokeWidth={2.2} type="monotone" />
-                      <Line dataKey="y8m" dot={false} stroke="#EAB308" strokeWidth={2.2} type="monotone" />
-                      <Line dataKey="y8n" dot={false} stroke="#8B5CF6" strokeWidth={2.2} type="monotone" />
-                      <Line dataKey="y8l" dot={false} stroke="#EF4444" strokeWidth={2.2} type="monotone" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartPanel>
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-[length:var(--font-xs)] text-slate-500">
-                  <LegendDot color="#2F6DF6" label="YOLOv8s" />
-                  <LegendDot color="#EAB308" label="YOLOv8m" />
-                  <LegendDot color="#8B5CF6" label="YOLOv8n" />
-                  <LegendDot color="#EF4444" label="YOLOv8l" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Model Size vs Performance" />
-                  <SelectStub label="All Models" />
-                </div>
-                <ChartPanel className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart>
-                      <CartesianGrid stroke="#E8EEF6" />
-                      <XAxis
-                        axisLine={false}
-                        dataKey="params"
-                        name="Model Size (Parameters)"
-                        tick={{ fill: "#98A2B3", fontSize: 11 }}
-                        tickLine={false}
-                        type="number"
-                      />
-                      <YAxis
-                        axisLine={false}
-                        dataKey="map"
-                        domain={[0.3, 0.9]}
-                        tick={{ fill: "#98A2B3", fontSize: 11 }}
-                        tickLine={false}
-                        type="number"
-                      />
-                      <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                      <Scatter data={automlScatterData} fill="#2F6DF6" />
-                    </ScatterChart>
-                  </ResponsiveContainer>
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No performance data yet. Charts will appear after AutoML runs.
+                  </div>
                 </ChartPanel>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="space-y-4 p-4">
-                <SectionHeading title="Hyperparameter Importance" />
-                {[
-                  ["Image Size", 0.32],
-                  ["Learning Rate", 0.24],
-                  ["Batch Size", 0.18],
-                  ["Weight Decay", 0.12],
-                  ["Momentum", 0.08],
-                  ["Augmentation", 0.06],
-                ].map(([label, value]) => (
-                  <ImportanceRow key={String(label)} label={String(label)} value={Number(value)} />
-                ))}
-                <button className="inline-flex items-center gap-2 text-[length:var(--font-sm)] font-medium text-primary" type="button">
-                  <CircleHelp className="h-4 w-4" />
-                  How it works?
-                </button>
+              <CardContent className="p-4">
+                <SectionHeading title="Model Comparison" />
+                <ChartPanel className="h-[220px]">
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No comparison data yet. Run multiple models to see comparisons.
+                  </div>
+                </ChartPanel>
               </CardContent>
             </Card>
           </div>
@@ -1121,21 +827,9 @@ export function ExperimentsPage() {
                     <CardContent className="p-4">
                       <SectionHeading title="mAP@0.5 over Epochs" />
                       <ChartPanel className="mt-4 h-[220px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={experimentMapData}>
-                            <defs>
-                              <linearGradient id="mapFill" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stopColor="#2F6DF6" stopOpacity={0.28} />
-                                <stop offset="100%" stopColor="#2F6DF6" stopOpacity={0.02} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                            <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <YAxis axisLine={false} domain={[0, 1.2]} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <Tooltip />
-                            <Area dataKey="value" fill="url(#mapFill)" stroke="#2F6DF6" strokeWidth={2.2} type="monotone" />
-                          </AreaChart>
-                        </ResponsiveContainer>
+                        <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                          Chart data will appear after training runs complete.
+                        </div>
                       </ChartPanel>
                     </CardContent>
                   </Card>
@@ -1144,17 +838,9 @@ export function ExperimentsPage() {
                     <CardContent className="p-4">
                       <SectionHeading title="Loss over Epochs" />
                       <ChartPanel className="mt-4 h-[220px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={experimentLossData}>
-                            <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                            <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <YAxis axisLine={false} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <Tooltip />
-                            <Line dataKey="box" dot={false} stroke="#2F6DF6" strokeWidth={2.2} type="monotone" />
-                            <Line dataKey="obj" dot={false} stroke="#22C55E" strokeWidth={2.2} type="monotone" />
-                            <Line dataKey="cls" dot={false} stroke="#8B5CF6" strokeWidth={2.2} type="monotone" />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                          Loss data will appear after training runs complete.
+                        </div>
                       </ChartPanel>
                     </CardContent>
                   </Card>
@@ -1367,89 +1053,45 @@ export function ModelsPage() {
   );
 }
 
-const datasetVersions = [
-  {
-    version: "v1.2",
-    status: "Current",
-    created: "May 18, 2025, 10:32 AM",
-    author: "Admin",
-    images: "118,000",
-    annotations: "94,400",
-    classes: "80",
-    splits: "Train 94K / Val 12K / Test 12K",
-    size: "68.4 GB",
-    description: "Added AutoLabel annotations for remaining images. Cleaned up duplicate entries.",
-    changes: "+2,400 annotations, +12 verified images",
-  },
-  {
-    version: "v1.1",
-    status: "Archived",
-    created: "May 15, 2025, 02:14 PM",
-    author: "Admin",
-    images: "115,600",
-    annotations: "92,000",
-    classes: "78",
-    splits: "Train 92K / Val 11.8K / Test 11.8K",
-    size: "66.1 GB",
-    description: "Imported additional camera sources. Re-split with 80/10/10 ratio.",
-    changes: "+5,600 images, +2 classes",
-  },
-  {
-    version: "v1.0",
-    status: "Archived",
-    created: "May 10, 2025, 09:00 AM",
-    author: "Admin",
-    images: "110,000",
-    annotations: "88,000",
-    classes: "76",
-    splits: "Train 88K / Val 11K / Test 11K",
-    size: "62.8 GB",
-    description: "Initial dataset version with base annotations.",
-    changes: "Initial import",
-  },
-];
 
-const versionCompareMetrics = [
-  { metric: "Images", v10: "110,000", v11: "115,600", v12: "118,000", delta: "+2.1%" },
-  { metric: "Annotations", v10: "88,000", v11: "92,000", v12: "94,400", delta: "+2.6%" },
-  { metric: "Classes", v10: "76", v11: "78", v12: "80", delta: "+2" },
-  { metric: "Labeled %", v10: "80.0%", v11: "79.6%", v12: "80.0%", delta: "+0.4%" },
-  { metric: "Verified %", v10: "45.2%", v11: "52.1%", v12: "58.4%", delta: "+6.3%" },
-  { metric: "Size", v10: "62.8 GB", v11: "66.1 GB", v12: "68.4 GB", delta: "+2.3 GB" },
-];
 
 export function VersionsPage() {
-  const { data: datasets, isLoading: datasetsLoading } = useDatasets();
-  const datasetCount = datasets?.length ?? 0;
+  const { data: datasets = [], isLoading: datasetsLoading } = useDatasets();
+  const datasetCount = datasets.length;
 
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
         <PageIntro title="Versions" subtitle="Track dataset versions, compare changes and manage snapshots" />
-        <Button className="h-11 gap-2">
+        <Button className="h-11 gap-2" disabled={datasetCount === 0}>
           <Plus className="h-4 w-4" />
           Create Version
         </Button>
       </div>
-      <TabBar tabs={["All Versions", "Compare", "Changelog", "Exports"]} active="All Versions" />
+      <TabBar tabs={["All Versions", "Compare", "Changelog"]} active="All Versions" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MiniMetricCard icon={Layers3} label="Total Versions" value={datasetsLoading ? "..." : String(datasetVersions.length)} subtitle={datasets?.[0]?.name ?? "No datasets"} />
-            <MiniMetricCard icon={FileText} label="Datasets" value={datasetsLoading ? "..." : String(datasetCount)} subtitle={`${datasetCount} registered`} />
-            <MiniMetricCard icon={Clock3} label="Last Updated" value="3h ago" subtitle="May 18, 10:32 AM" />
-            <MiniMetricCard icon={HardDrive} label="Total Storage" value="197.3 GB" subtitle="All versions combined" />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <MiniMetricCard icon={Layers3} label="Datasets" value={datasetsLoading ? "..." : String(datasetCount)} subtitle={`${datasetCount} registered`} />
+            <MiniMetricCard icon={FileText} label="Total Images" value={datasetsLoading ? "..." : String(datasets.reduce((a, d) => a + d.stats.images, 0))} subtitle="Across all datasets" />
+            <MiniMetricCard icon={CheckCircle2} label="Total Annotations" value={datasetsLoading ? "..." : String(datasets.reduce((a, d) => a + d.stats.annotations, 0))} subtitle="Across all datasets" />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <SearchField placeholder="Search versions..." className="min-w-[240px] flex-1 xl:max-w-[360px]" />
-            <SelectStub label="All Status" />
-            <SelectStub label="Sort: Newest First" className="ml-auto" />
-          </div>
-
-          {datasetVersions.map((ver) => (
-            <Card key={ver.version}>
+          {datasetsLoading ? (
+            <div className="py-12 text-center text-slate-400">Loading...</div>
+          ) : datasets.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <Layers3 className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="ui-section-title">No versions yet</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a dataset first, then you can create version snapshots to track changes over time.</p>
+              </CardContent>
+            </Card>
+          ) : datasets.map((dataset) => (
+            <Card key={dataset.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -1458,50 +1100,20 @@ export function VersionsPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="ui-section-title">{ver.version}</h3>
-                        <Badge tone={ver.status === "Current" ? "success" : "default"}>{ver.status}</Badge>
+                        <h3 className="ui-section-title">{dataset.name}</h3>
+                        <Badge tone={dataset.status === "Ready" ? "success" : "default"}>{dataset.version}</Badge>
                       </div>
                       <div className="mt-1 text-[length:var(--font-sm)] text-slate-500">
-                        Created {ver.created} by {ver.author}
+                        {dataset.task} • {dataset.format}
                       </div>
                     </div>
                   </div>
-                  <button className="text-slate-400" type="button">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
                 </div>
-
-                <p className="mt-3 text-[length:var(--font-sm)] text-slate-500">{ver.description}</p>
-                <div className="mt-2 text-[length:var(--font-xs)] font-medium text-emerald-600">{ver.changes}</div>
-
-                <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-5">
-                  <StatInline icon={FileImage} value={ver.images} label="Images" />
-                  <StatInline icon={CheckCircle2} value={ver.annotations} label="Annotations" />
-                  <StatInline icon={Layers3} value={ver.classes} label="Classes" />
-                  <StatInline icon={HardDrive} value={ver.size} label="Size" />
-                  <StatInline icon={Copy} value={ver.splits} label="Splits" />
-                </div>
-
-                <div className="mt-4 flex items-center gap-3 border-t border-slate-100 pt-4">
-                  {ver.status === "Current" ? (
-                    <Button className="h-10 gap-2">
-                      <FileDown className="h-4 w-4" />
-                      Export YOLO
-                    </Button>
-                  ) : (
-                    <Button variant="secondary" className="h-10 gap-2 border border-blue-200 bg-blue-50 text-primary">
-                      <Play className="h-4 w-4" />
-                      Restore
-                    </Button>
-                  )}
-                  <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
-                    <Eye className="h-4 w-4" />
-                    Browse Files
-                  </Button>
-                  <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
+                <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
+                  <StatInline icon={FileImage} value={String(dataset.stats.images)} label="Images" />
+                  <StatInline icon={CheckCircle2} value={String(dataset.stats.annotations)} label="Annotations" />
+                  <StatInline icon={Layers3} value={String(dataset.stats.classes)} label="Classes" />
+                  <StatInline icon={HardDrive} value={String(dataset.stats.videos)} label="Videos" />
                 </div>
               </CardContent>
             </Card>
@@ -1511,37 +1123,9 @@ export function VersionsPage() {
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Version Comparison" subtitle="Compare metrics across versions" />
-              <div className="overflow-hidden rounded-2xl border border-slate-200">
-                <table className="w-full border-collapse text-left text-[length:var(--font-xs)]">
-                  <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
-                    <tr>
-                      {["Metric", "v1.0", "v1.1", "v1.2", "Delta"].map((header) => (
-                        <th key={header} className="px-3 py-2.5">{header}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="text-slate-600">
-                    {versionCompareMetrics.map((row) => (
-                      <tr key={row.metric} className="border-t border-slate-100">
-                        <td className="px-3 py-2.5 font-medium">{row.metric}</td>
-                        <td className="px-3 py-2.5">{row.v10}</td>
-                        <td className="px-3 py-2.5">{row.v11}</td>
-                        <td className="px-3 py-2.5 font-semibold text-primary">{row.v12}</td>
-                        <td className="px-3 py-2.5 font-medium text-emerald-600">{row.delta}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4 p-4">
               <SectionHeading title="Create New Version" />
               <FieldGroup label="Version Label">
-                <input className="form-input h-11 rounded-xl" defaultValue="v1.3" type="text" />
+                <input className="form-input h-11 rounded-xl" placeholder="e.g. v1.0" type="text" />
               </FieldGroup>
               <FieldGroup label="Description">
                 <textarea
@@ -1551,8 +1135,7 @@ export function VersionsPage() {
               </FieldGroup>
               <CheckRow checked label="Include all current media files" subtitle="Snapshot all images and videos" />
               <CheckRow checked label="Include annotations" subtitle="Copy all annotation files" />
-              <CheckRow label="Lock previous version" subtitle="Prevent modifications to v1.2" />
-              <Button className="h-12 w-full gap-2">
+              <Button className="h-12 w-full gap-2" disabled={datasetCount === 0}>
                 <Save className="h-4 w-4" />
                 Create Version Snapshot
               </Button>
@@ -1561,27 +1144,10 @@ export function VersionsPage() {
 
           <Card>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <SectionHeading title="Recent Changes" />
-                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">View All</button>
+              <SectionHeading title="Recent Changes" />
+              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
+                No changes recorded yet.
               </div>
-              {[
-                ["AutoLabel completed", "2,400 annotations added automatically", "3h ago"],
-                ["Images verified", "12 images marked as verified", "5h ago"],
-                ["Source added", "New camera source imported", "1 day ago"],
-                ["Split updated", "Re-balanced train/val/test ratio", "2 days ago"],
-              ].map(([title, subtitle, time]) => (
-                <div key={title} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
-                    <Activity className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="ui-card-title">{title}</div>
-                    <div className="ui-meta mt-1">{subtitle}</div>
-                  </div>
-                  <div className="ui-meta">{time}</div>
-                </div>
-              ))}
             </CardContent>
           </Card>
         </div>
@@ -1590,224 +1156,93 @@ export function VersionsPage() {
   );
 }
 
-const pipelineNodes = [
-  { id: "1", name: "Data Import", type: "source", status: "Completed", icon: "Upload", duration: "2m 14s" },
-  { id: "2", name: "Preprocessing", type: "transform", status: "Completed", icon: "Settings2", duration: "5m 32s" },
-  { id: "3", name: "Augmentation", type: "transform", status: "Completed", icon: "Sparkles", duration: "8m 01s" },
-  { id: "4", name: "Train / Val Split", type: "transform", status: "Completed", icon: "Copy", duration: "0m 45s" },
-  { id: "5", name: "YOLOv8s Training", type: "training", status: "Running", icon: "Activity", duration: "1h 23m" },
-  { id: "6", name: "Evaluation", type: "evaluation", status: "Pending", icon: "BarChart3", duration: "—" },
-  { id: "7", name: "Model Export", type: "export", status: "Pending", icon: "FileDown", duration: "—" },
-];
 
-const pipelineTemplates = [
-  { name: "YOLO Detection Pipeline", description: "End-to-end object detection training pipeline", steps: 7, duration: "~2h" },
-  { name: "Classification Pipeline", description: "Image classification with data augmentation", steps: 5, duration: "~1h" },
-  { name: "Data Preparation Only", description: "Import, clean and split dataset", steps: 4, duration: "~30m" },
-  { name: "AutoML + Export", description: "Automated model search and ONNX export", steps: 6, duration: "~4h" },
-];
-
-const pipelineHistory = [
-  { name: "YOLO Detection Pipeline", run: "Run #12", status: "Completed", duration: "1h 52m", date: "May 18, 10:32 AM" },
-  { name: "YOLO Detection Pipeline", run: "Run #11", status: "Failed", duration: "45m", date: "May 17, 03:14 PM" },
-  { name: "Classification Pipeline", run: "Run #3", status: "Completed", duration: "58m", date: "May 16, 11:20 AM" },
-  { name: "Data Preparation Only", run: "Run #8", status: "Completed", duration: "22m", date: "May 15, 09:45 AM" },
-];
 
 export function PipelinesPage() {
-  const { data: apiPipelines, isLoading: pipelinesLoading } = usePipelines();
-  const pipelineCount = apiPipelines?.length ?? 0;
+  const { data: apiPipelines = [], isLoading: pipelinesLoading } = usePipelines();
+  const createPipeline = useCreatePipeline();
+  const pipelineCount = apiPipelines.length;
 
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
         <PageIntro title="Pipelines" subtitle="Build, manage and run end-to-end ML workflows" />
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-            <Upload className="h-4 w-4" />
-            Import Pipeline
-          </Button>
-          <Button className="h-11 gap-2">
-            <Plus className="h-4 w-4" />
-            New Pipeline
-          </Button>
-        </div>
+        <Button className="h-11 gap-2" onClick={() => createPipeline.mutate({ name: `Pipeline #${pipelineCount + 1}`, description: "New pipeline" })} disabled={createPipeline.isPending}>
+          <Plus className="h-4 w-4" />
+          New Pipeline
+        </Button>
       </div>
-      <TabBar tabs={["Pipeline Editor", "Templates", "Runs", "Schedules"]} active="Pipeline Editor" />
+      <TabBar tabs={["Overview", "Templates", "Runs"]} active="Overview" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MiniMetricCard icon={Activity} label="Pipeline Status" value="Running" subtitle="Step 5 of 7" accent="text-emerald-500" />
-            <MiniMetricCard icon={Clock3} label="Elapsed Time" value="1h 39m" subtitle="Started 08:53 AM" />
-            <MiniMetricCard icon={Gauge} label="Overall Progress" value="71%" subtitle={<ProgressMini progress={71} />} />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <MiniMetricCard icon={Zap} label="Total Pipelines" value={pipelinesLoading ? "..." : String(pipelineCount)} subtitle={`${pipelineCount} registered`} />
+            <MiniMetricCard icon={Activity} label="Status" value={pipelineCount > 0 ? "Ready" : "—"} subtitle={pipelineCount > 0 ? "No active runs" : "Create a pipeline to start"} />
+            <MiniMetricCard icon={Clock3} label="Runs" value="0" subtitle="No pipeline runs yet" />
           </div>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <SectionHeading title="Pipeline Flow" subtitle="YOLO Detection Pipeline" />
-                <div className="flex items-center gap-2">
-                  <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
-                    <Settings2 className="h-4 w-4" />
-                    Configure
-                  </Button>
-                  <SelectStub label="Run #12" />
+          {pipelinesLoading ? (
+            <div className="py-12 text-center text-slate-400">Loading...</div>
+          ) : apiPipelines.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <Workflow className="h-8 w-8 text-slate-400" />
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                {pipelineNodes.map((node, index) => (
-                  <div key={node.id}>
-                    <div className={cn(
-                      "flex items-center gap-4 rounded-2xl border p-4 transition-colors",
-                      node.status === "Running" ? "border-blue-200 bg-blue-50/40" :
-                      node.status === "Completed" ? "border-slate-200 bg-white" :
-                      "border-dashed border-slate-200 bg-slate-50/40",
-                    )}>
-                      <div className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-xl",
-                        node.status === "Completed" ? "bg-emerald-50 text-emerald-600" :
-                        node.status === "Running" ? "bg-blue-50 text-primary" :
-                        "bg-slate-100 text-slate-400",
-                      )}>
-                        {node.status === "Completed" ? (
-                          <CheckCircle2 className="h-5 w-5" />
-                        ) : node.status === "Running" ? (
-                          <Activity className="h-5 w-5" />
-                        ) : (
-                          <Clock3 className="h-5 w-5" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="ui-card-title">{node.name}</span>
-                          <Badge tone={
-                            node.status === "Completed" ? "success" :
-                            node.status === "Running" ? "info" : "default"
-                          }>{node.status}</Badge>
-                        </div>
-                        <div className="ui-meta mt-1">Step {node.id} • {node.type} • {node.duration}</div>
-                      </div>
-                      <button className="text-slate-400" type="button">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </div>
-                    {index < pipelineNodes.length - 1 ? (
-                      <div className="ml-[30px] flex h-4 items-center">
-                        <div className={cn(
-                          "h-full w-0.5",
-                          node.status === "Completed" ? "bg-emerald-300" : "bg-slate-200",
-                        )} />
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <SectionHeading title="Run History" />
-                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">View All</button>
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-slate-200">
-                <table className="w-full border-collapse text-left">
-                  <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
-                    <tr>
-                      {["Pipeline", "Run", "Status", "Duration", "Date", "Actions"].map((header) => (
-                        <th key={header} className="px-4 py-3">{header}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                    {pipelineHistory.map((run) => (
-                      <tr key={`${run.name}-${run.run}`} className="border-t border-slate-100">
-                        <td className="px-4 py-3 font-medium">{run.name}</td>
-                        <td className="px-4 py-3">{run.run}</td>
-                        <td className="px-4 py-3">
-                          <Badge tone={run.status === "Failed" ? "danger" : "success"}>{run.status}</Badge>
-                        </td>
-                        <td className="px-4 py-3">{run.duration}</td>
-                        <td className="px-4 py-3">{run.date}</td>
-                        <td className="px-4 py-3 text-slate-400">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </td>
+                <h3 className="ui-section-title">No pipelines yet</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a pipeline to build an end-to-end ML workflow with data import, preprocessing, training and export steps.</p>
+                <Button className="mt-4 h-11 gap-2" onClick={() => createPipeline.mutate({ name: "My First Pipeline", description: "End-to-end ML workflow" })} disabled={createPipeline.isPending}>
+                  <Plus className="h-4 w-4" />
+                  Create First Pipeline
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-4">
+                <SectionHeading title="Pipelines" />
+                <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+                  <table className="w-full border-collapse text-left">
+                    <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
+                      <tr>
+                        {["Name", "Description", "Steps", "Status"].map((header) => (
+                          <th key={header} className="px-4 py-3">{header}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                    </thead>
+                    <tbody className="text-[length:var(--font-sm)] text-slate-600">
+                      {apiPipelines.map((p) => (
+                        <tr key={p.id} className="border-t border-slate-100">
+                          <td className="px-4 py-3 font-semibold text-primary">{p.name}</td>
+                          <td className="px-4 py-3">{p.description}</td>
+                          <td className="px-4 py-3">{p.total_steps}</td>
+                          <td className="px-4 py-3"><Badge tone="default">Ready</Badge></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Pipeline Controls" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Button className="h-11 gap-2 bg-rose-500 shadow-none hover:bg-rose-600">
-                  <Square className="h-4 w-4" />
-                  Stop
-                </Button>
-                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                  <Activity className="h-4 w-4" />
-                  Pause
-                </Button>
-                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                  <Play className="h-4 w-4" />
-                  Restart
-                </Button>
-                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                  <FileDown className="h-4 w-4" />
-                  Export Logs
-                </Button>
-              </div>
+              <SectionHeading title="Quick Start" />
+              <p className="text-[length:var(--font-sm)] text-slate-500">Pipelines let you chain steps together: data import → preprocessing → augmentation → training → evaluation → export.</p>
+              <p className="text-[length:var(--font-sm)] text-slate-500">Create a pipeline above and add steps to build your workflow.</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Current Step Details" />
-              <InfoList
-                items={[
-                  ["Step", "5 — YOLOv8s Training"],
-                  ["Model", "YOLOv8s"],
-                  ["Dataset", "Coco Dataset v1.2"],
-                  ["Epoch", "24 / 50"],
-                  ["Best mAP@0.5", "0.89"],
-                  ["Learning Rate", "0.01"],
-                  ["Batch Size", "16"],
-                  ["Device", "GPU 0: RTX 4090"],
-                ]}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <SectionHeading title="Templates" />
-                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">Browse All</button>
+              <SectionHeading title="Run History" />
+              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
+                No pipeline runs yet.
               </div>
-              {pipelineTemplates.map((tpl) => (
-                <div key={tpl.name} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
-                    <Workflow className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="ui-card-title">{tpl.name}</div>
-                    <div className="ui-meta mt-1">{tpl.steps} steps • {tpl.duration}</div>
-                  </div>
-                  <Button variant="secondary" className="h-9 border border-slate-200 bg-white px-3">
-                    Use
-                  </Button>
-                </div>
-              ))}
             </CardContent>
           </Card>
         </div>
@@ -2056,48 +1491,56 @@ export function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Danger Zone" />
-              <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/30 p-4">
-                <div className="text-[length:var(--font-md)] font-medium text-rose-700">Delete Workspace</div>
-                <div className="text-[length:var(--font-sm)] text-rose-500">
-                  This action cannot be undone. All projects, datasets and models will be permanently removed.
-                </div>
-                <Button variant="secondary" className="h-11 gap-2 border border-rose-300 bg-white text-rose-600 hover:bg-rose-50">
-                  Delete Workspace
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <DangerZoneCard />
         </div>
       </div>
     </section>
   );
 }
 
-export function ComingSoonPage({
-  description,
-  title,
-}: {
-  description: string;
-  title: string;
-}) {
+
+
+function DangerZoneCard() {
+  const [resetting, setResetting] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const queryClient = useQueryClient();
+
+  const handleReset = async () => {
+    if (!window.confirm("Are you sure you want to clear ALL data? This action cannot be undone.")) return;
+    setResetting(true);
+    try {
+      await resetDatabase();
+      queryClient.invalidateQueries();
+      setDone(true);
+      setTimeout(() => setDone(false), 3000);
+    } catch {
+      alert("Failed to reset database");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
-    <section className="ui-page-centered flex h-full w-full items-center justify-center">
-      <Card className="w-full max-w-[680px]">
-        <CardContent className="space-y-4 p-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-primary">
-            <Boxes className="h-7 w-7" />
+    <Card>
+      <CardContent className="space-y-4 p-4">
+        <SectionHeading title="Danger Zone" />
+        <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/30 p-4">
+          <div className="text-[length:var(--font-md)] font-medium text-rose-700">Clear All Data</div>
+          <div className="text-[length:var(--font-sm)] text-rose-500">
+            Delete all training runs, models, pipelines and settings. Projects and datasets are preserved.
           </div>
-          <div className="text-[28px] font-semibold tracking-[-0.04em] text-slate-900">{title}</div>
-          <p className="mx-auto max-w-[480px] text-[length:var(--font-md)] leading-7 text-slate-500">{description}</p>
-          <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-[length:var(--font-sm)] text-slate-500">
-            Static UI screen only for now. Functional actions will be connected later.
-          </div>
-        </CardContent>
-      </Card>
-    </section>
+          <Button
+            variant="secondary"
+            className="h-11 gap-2 border border-rose-300 bg-white text-rose-600 hover:bg-rose-50"
+            onClick={handleReset}
+            disabled={resetting}
+          >
+            <Trash2 className="h-4 w-4" />
+            {resetting ? "Clearing..." : done ? "Cleared!" : "Clear Database"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2229,38 +1672,6 @@ function ChartPanel({ children, className }: { children: ReactNode; className?: 
   return <div className={cn("rounded-2xl bg-white", className)}>{children}</div>;
 }
 
-function LegendDot({ color, dashed, label }: { color: string; dashed?: boolean; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className={cn("inline-flex h-0.5 w-4 items-center rounded-full", dashed && "border-t-2 border-dashed bg-transparent")}
-        style={dashed ? { borderColor: color } : { backgroundColor: color }}
-      />
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function ThumbnailMosaic({ label, palette }: { label: string; palette: string[] }) {
-  return (
-    <div className="grid w-[214px] grid-cols-3 gap-2">
-      {palette.map((color, index) => (
-        <div
-          key={`${color}-${index}`}
-          className="relative h-[58px] overflow-hidden rounded-xl"
-          style={{ background: `linear-gradient(145deg, ${color} 0%, rgba(255,255,255,0.12) 100%)` }}
-        >
-          <div className="absolute inset-x-3 top-2 h-4 rounded-full bg-white/14" />
-          <div className="absolute bottom-2 left-3 h-5 w-7 rounded-lg border border-white/18 bg-white/12" />
-          <div className="absolute bottom-2 right-3 h-3 w-3 rounded-full bg-white/18" />
-          {index === palette.length - 1 ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/25 text-[length:var(--font-xl)] font-semibold text-white">{label}</div>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function StatInline({
   icon: Icon,
@@ -2417,17 +1828,6 @@ function FieldGroup({ children, label }: { children: ReactNode; label: string })
   );
 }
 
-function ImportanceRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="grid grid-cols-[1fr_110px_40px] items-center gap-3 text-[length:var(--font-xs)]">
-      <span className="text-slate-600">{label}</span>
-      <div className="h-2 rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${value * 100}%` }} />
-      </div>
-      <span className="text-right text-slate-400">{value.toFixed(2)}</span>
-    </div>
-  );
-}
 
 function FeatureTile({
   icon: Icon,

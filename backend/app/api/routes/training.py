@@ -427,3 +427,21 @@ def bulk_update_settings(payload: SettingsBulkUpdate, db: Session = Depends(get_
         results.append(SettingItem(key=item.key, value=item.value, category=item.category))
     db.commit()
     return results
+
+
+# ---------------------------------------------------------------------------
+# Database Reset
+# ---------------------------------------------------------------------------
+
+
+@router.post("/reset", status_code=200)
+def reset_database(db: Session = Depends(get_db)) -> dict[str, str]:
+    """Delete all training runs, models, pipelines, pipeline steps/runs and settings."""
+    db.query(PipelineRunRecord).delete()
+    db.query(PipelineStepRecord).delete()
+    db.query(PipelineRecord).delete()
+    db.query(ModelRecord).delete()
+    db.query(TrainingRun).delete()
+    db.query(SettingRecord).delete()
+    db.commit()
+    return {"status": "ok", "message": "All data has been cleared"}

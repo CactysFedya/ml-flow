@@ -574,6 +574,15 @@ export async function updateSetting(key: string, value: string): Promise<Setting
   return readJson<SettingItem>(response, "Update setting failed");
 }
 
+// ---------------------------------------------------------------------------
+// Database Reset
+// ---------------------------------------------------------------------------
+
+export async function resetDatabase(): Promise<{ status: string; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/reset`, { method: "POST" });
+  return readJson<{ status: string; message: string }>(response, "Reset database failed");
+}
+
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { detail?: string } | null;
