@@ -456,12 +456,59 @@ export interface PipelineItem {
   updated_at: string;
 }
 
+export interface PipelineCreatePayload {
+  name?: string;
+  description?: string;
+  template?: string;
+  project_id?: number | null;
+}
+
+export interface PipelineDetail extends PipelineItem {
+  steps: PipelineStepItem[];
+  runs: PipelineRunItem[];
+}
+
+export interface PipelineStepItem {
+  id: number;
+  pipeline_id: number;
+  step_order: number;
+  name: string;
+  step_type: string;
+  status: string;
+  config_json: string;
+  duration_seconds: number;
+  created_at: string;
+}
+
+export interface PipelineRunItem {
+  id: number;
+  pipeline_id: number;
+  run_number: number;
+  status: string;
+  duration_seconds: number;
+  created_at: string;
+}
+
 export async function getPipelines(projectId?: number | null): Promise<PipelineItem[]> {
   const params = new URLSearchParams();
   if (projectId != null) params.set("project_id", String(projectId));
   const query = params.toString();
   const response = await fetch(`${API_BASE_URL}/pipelines${query ? `?${query}` : ""}`);
   return readJson<PipelineItem[]>(response, "Pipelines request failed");
+}
+
+export async function getPipeline(pipelineId: number): Promise<PipelineDetail> {
+  const response = await fetch(`${API_BASE_URL}/pipelines/${pipelineId}`);
+  return readJson<PipelineDetail>(response, "Pipeline request failed");
+}
+
+export async function createPipeline(payload: PipelineCreatePayload): Promise<PipelineItem> {
+  const response = await fetch(`${API_BASE_URL}/pipelines`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<PipelineItem>(response, "Create pipeline failed");
 }
 
 export async function deletePipeline(pipelineId: number): Promise<void> {

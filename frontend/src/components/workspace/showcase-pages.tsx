@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import {
   Activity,
   ArrowRight,
@@ -59,6 +59,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useSettings, useUpdateSetting } from "@/hooks/useSettings";
+import { usePipelines } from "@/hooks/usePipelines";
+import { useDatasets } from "@/hooks/useDatasets";
+import type { SettingItem } from "@/lib/api";
 
 const trainingMetricData = [
   { epoch: 0, train: 0.08, val: 0.04 },
@@ -1595,6 +1599,9 @@ const versionCompareMetrics = [
 ];
 
 export function VersionsPage() {
+  const { data: datasets, isLoading: datasetsLoading } = useDatasets();
+  const datasetCount = datasets?.length ?? 0;
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
@@ -1609,8 +1616,8 @@ export function VersionsPage() {
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MiniMetricCard icon={Layers3} label="Total Versions" value="3" subtitle="Coco Dataset v1.2" />
-            <MiniMetricCard icon={FileText} label="Current Version" value="v1.2" subtitle="118,000 images" />
+            <MiniMetricCard icon={Layers3} label="Total Versions" value={datasetsLoading ? "..." : String(datasetVersions.length)} subtitle={datasets?.[0]?.name ?? "No datasets"} />
+            <MiniMetricCard icon={FileText} label="Datasets" value={datasetsLoading ? "..." : String(datasetCount)} subtitle={`${datasetCount} registered`} />
             <MiniMetricCard icon={Clock3} label="Last Updated" value="3h ago" subtitle="May 18, 10:32 AM" />
             <MiniMetricCard icon={HardDrive} label="Total Storage" value="197.3 GB" subtitle="All versions combined" />
           </div>
@@ -1788,6 +1795,9 @@ const pipelineHistory = [
 ];
 
 export function PipelinesPage() {
+  const { data: apiPipelines, isLoading: pipelinesLoading } = usePipelines();
+  const pipelineCount = apiPipelines?.length ?? 0;
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
@@ -1811,7 +1821,7 @@ export function PipelinesPage() {
             <MiniMetricCard icon={Activity} label="Pipeline Status" value="Running" subtitle="Step 5 of 7" accent="text-emerald-500" />
             <MiniMetricCard icon={Clock3} label="Elapsed Time" value="1h 39m" subtitle="Started 08:53 AM" />
             <MiniMetricCard icon={Gauge} label="Overall Progress" value="71%" subtitle={<ProgressMini progress={71} />} />
-            <MiniMetricCard icon={Zap} label="Total Runs" value="12" subtitle="8 successful" />
+            <MiniMetricCard icon={Zap} label="Total Pipelines" value={pipelinesLoading ? "..." : String(pipelineCount)} subtitle={`${pipelineCount} registered`} />
           </div>
 
           <Card>
@@ -1986,37 +1996,118 @@ export function PipelinesPage() {
   );
 }
 
-const settingsSections = [
-  {
-    title: "General",
-    items: [
-      { label: "Workspace Name", value: "MLForge Workspace", type: "input" as const },
-      { label: "Description", value: "Primary ML workspace for object detection projects", type: "textarea" as const },
-      { label: "Owner", value: "Admin", type: "input" as const },
-      { label: "Default Task", value: "Object Detection", type: "select" as const },
-    ],
-  },
-  {
-    title: "Storage",
-    items: [
-      { label: "Data Directory", value: "/data/mlforge", type: "path" as const },
-      { label: "Dataset Storage", value: "/data/mlforge/datasets", type: "path" as const },
-      { label: "Model Storage", value: "/data/mlforge/models", type: "path" as const },
-      { label: "Export Directory", value: "/data/mlforge/exports", type: "path" as const },
-    ],
-  },
-];
+const SETTINGS_KEY_MAP: Record<string, { label: string; type: "input" | "textarea" | "select" | "path"; section: string }> = {
+  workspace_name: { label: "Workspace Name", type: "input", section: "General" },
+  workspace_description: { label: "Description", type: "textarea", section: "General" },
+  workspace_owner: { label: "Owner", type: "input", section: "General" },
+  default_task: { label: "Default Task", type: "select", section: "General" },
+  data_directory: { label: "Data Directory", type: "path", section: "Storage" },
+  dataset_storage: { label: "Dataset Storage", type: "path", section: "Storage" },
+  model_storage: { label: "Model Storage", type: "path", section: "Storage" },
+  export_directory: { label: "Export Directory", type: "path", section: "Storage" },
+};
 
-const settingsToggles = [
-  { label: "Auto-save annotations", subtitle: "Automatically save annotation changes every 30 seconds", checked: true },
-  { label: "Auto-scan sources", subtitle: "Automatically scan dataset sources for new files", checked: true },
-  { label: "Enable video frame extraction", subtitle: "Allow extracting frames from video files in datasets", checked: true },
-  { label: "Show preview thumbnails", subtitle: "Generate and display image previews in media browser", checked: true },
-  { label: "Enable experiment tracking", subtitle: "Track metrics, parameters and artifacts for training runs", checked: false },
-  { label: "Dark mode", subtitle: "Switch to dark color theme", checked: false },
-];
+const TRAINING_KEY_MAP: Record<string, { label: string; type: "select" | "input" }> = {
+  default_model: { label: "Default Model", type: "select" },
+  default_image_size: { label: "Default Image Size", type: "select" },
+  default_batch_size: { label: "Default Batch Size", type: "input" },
+  default_epochs: { label: "Default Epochs", type: "input" },
+  default_optimizer: { label: "Default Optimizer", type: "select" },
+  default_learning_rate: { label: "Default Learning Rate", type: "input" },
+};
+
+const TOGGLE_KEY_MAP: Record<string, { label: string; subtitle: string }> = {
+  auto_save_annotations: { label: "Auto-save annotations", subtitle: "Automatically save annotation changes every 30 seconds" },
+  auto_scan_sources: { label: "Auto-scan sources", subtitle: "Automatically scan dataset sources for new files" },
+  enable_video_extraction: { label: "Enable video frame extraction", subtitle: "Allow extracting frames from video files in datasets" },
+  show_preview_thumbnails: { label: "Show preview thumbnails", subtitle: "Generate and display image previews in media browser" },
+  enable_experiment_tracking: { label: "Enable experiment tracking", subtitle: "Track metrics, parameters and artifacts for training runs" },
+  dark_mode: { label: "Dark mode", subtitle: "Switch to dark color theme" },
+};
+
+function SettingsField({ setting, type, onSave }: { setting: SettingItem; type: "input" | "textarea" | "select" | "path"; onSave: (key: string, value: string) => void }) {
+  const [value, setValue] = useState(setting.value);
+
+  const handleBlur = useCallback(() => {
+    if (value !== setting.value) onSave(setting.key, value);
+  }, [value, setting.value, setting.key, onSave]);
+
+  if (type === "textarea") {
+    return (
+      <textarea
+        className="min-h-[80px] w-full rounded-xl border border-slate-200 p-3 text-[length:var(--font-sm)] outline-none placeholder:text-slate-400 focus:border-primary"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleBlur}
+      />
+    );
+  }
+  if (type === "select") {
+    return <SelectStub label={value} className="w-full" />;
+  }
+  if (type === "path") {
+    return (
+      <div className="flex items-center gap-2">
+        <input className="form-input h-11 flex-1 rounded-xl" value={value} onChange={(e) => setValue(e.target.value)} onBlur={handleBlur} type="text" />
+        <Button variant="secondary" className="h-11 border border-slate-200 bg-white px-3">
+          <FolderOpen className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+  return <input className="form-input h-11 rounded-xl" value={value} onChange={(e) => setValue(e.target.value)} onBlur={handleBlur} type="text" />;
+}
+
+function SettingsToggle({ setting, label, subtitle, onSave }: { setting: SettingItem; label: string; subtitle: string; onSave: (key: string, value: string) => void }) {
+  const checked = setting.value === "true";
+  return (
+    <div
+      className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 cursor-pointer"
+      onClick={() => onSave(setting.key, checked ? "false" : "true")}
+    >
+      <div>
+        <div className="text-[length:var(--font-md)] font-medium text-slate-700">{label}</div>
+        <div className="ui-meta mt-1">{subtitle}</div>
+      </div>
+      <div className={cn(
+        "flex h-7 w-12 items-center rounded-full px-1 transition-colors",
+        checked ? "bg-primary" : "bg-slate-200",
+      )}>
+        <div className={cn(
+          "h-5 w-5 rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-5" : "translate-x-0",
+        )} />
+      </div>
+    </div>
+  );
+}
 
 export function SettingsPage() {
+  const { data: settings, isLoading } = useSettings();
+  const updateSetting = useUpdateSetting();
+
+  const settingsMap = new Map<string, SettingItem>();
+  if (settings) {
+    for (const s of settings) settingsMap.set(s.key, s);
+  }
+
+  const handleSave = useCallback((key: string, value: string) => {
+    updateSetting.mutate({ key, value });
+  }, [updateSetting]);
+
+  if (isLoading) {
+    return (
+      <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+        <PageIntro title="Settings" subtitle="Configure your workspace preferences and integrations" />
+        <TabBar tabs={["General", "Storage", "Training", "Integrations", "Advanced"]} active="General" />
+        <div className="flex items-center justify-center py-20 text-slate-400">Loading settings...</div>
+      </section>
+    );
+  }
+
+  const generalSettings = Object.entries(SETTINGS_KEY_MAP).filter(([, v]) => v.section === "General");
+  const storageSettings = Object.entries(SETTINGS_KEY_MAP).filter(([, v]) => v.section === "Storage");
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <PageIntro title="Settings" subtitle="Configure your workspace preferences and integrations" />
@@ -2024,57 +2115,49 @@ export function SettingsPage() {
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
-          {settingsSections.map((section) => (
-            <Card key={section.title}>
-              <CardContent className="space-y-5 p-4">
-                <SectionHeading title={section.title} />
-                {section.items.map((item) => (
-                  <FieldGroup key={item.label} label={item.label}>
-                    {item.type === "textarea" ? (
-                      <textarea
-                        className="min-h-[80px] w-full rounded-xl border border-slate-200 p-3 text-[length:var(--font-sm)] outline-none placeholder:text-slate-400 focus:border-primary"
-                        defaultValue={item.value}
-                      />
-                    ) : item.type === "select" ? (
-                      <SelectStub label={item.value} className="w-full" />
-                    ) : item.type === "path" ? (
-                      <div className="flex items-center gap-2">
-                        <input className="form-input h-11 flex-1 rounded-xl" defaultValue={item.value} type="text" />
-                        <Button variant="secondary" className="h-11 border border-slate-200 bg-white px-3">
-                          <FolderOpen className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <input className="form-input h-11 rounded-xl" defaultValue={item.value} type="text" />
-                    )}
+          <Card>
+            <CardContent className="space-y-5 p-4">
+              <SectionHeading title="General" />
+              {generalSettings.map(([key, meta]) => {
+                const setting = settingsMap.get(key);
+                if (!setting) return null;
+                return (
+                  <FieldGroup key={key} label={meta.label}>
+                    <SettingsField setting={setting} type={meta.type} onSave={handleSave} />
                   </FieldGroup>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-5 p-4">
+              <SectionHeading title="Storage" />
+              {storageSettings.map(([key, meta]) => {
+                const setting = settingsMap.get(key);
+                if (!setting) return null;
+                return (
+                  <FieldGroup key={key} label={meta.label}>
+                    <SettingsField setting={setting} type={meta.type} onSave={handleSave} />
+                  </FieldGroup>
+                );
+              })}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardContent className="space-y-5 p-4">
               <SectionHeading title="Training Defaults" />
               <div className="grid gap-5 xl:grid-cols-2">
-                <FieldGroup label="Default Model">
-                  <SelectStub label="YOLOv8s" className="w-full" />
-                </FieldGroup>
-                <FieldGroup label="Default Image Size">
-                  <SelectStub label="640 × 640" className="w-full" />
-                </FieldGroup>
-                <FieldGroup label="Default Batch Size">
-                  <input className="form-input h-11 rounded-xl" defaultValue="16" type="text" />
-                </FieldGroup>
-                <FieldGroup label="Default Epochs">
-                  <input className="form-input h-11 rounded-xl" defaultValue="50" type="text" />
-                </FieldGroup>
-                <FieldGroup label="Default Optimizer">
-                  <SelectStub label="SGD" className="w-full" />
-                </FieldGroup>
-                <FieldGroup label="Default Learning Rate">
-                  <input className="form-input h-11 rounded-xl" defaultValue="0.01" type="text" />
-                </FieldGroup>
+                {Object.entries(TRAINING_KEY_MAP).map(([key, meta]) => {
+                  const setting = settingsMap.get(key);
+                  if (!setting) return null;
+                  return (
+                    <FieldGroup key={key} label={meta.label}>
+                      <SettingsField setting={setting} type={meta.type} onSave={handleSave} />
+                    </FieldGroup>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -2082,23 +2165,11 @@ export function SettingsPage() {
           <Card>
             <CardContent className="space-y-4 p-4">
               <SectionHeading title="Features" subtitle="Enable or disable workspace features" />
-              {settingsToggles.map((toggle) => (
-                <div key={toggle.label} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4">
-                  <div>
-                    <div className="text-[length:var(--font-md)] font-medium text-slate-700">{toggle.label}</div>
-                    <div className="ui-meta mt-1">{toggle.subtitle}</div>
-                  </div>
-                  <div className={cn(
-                    "flex h-7 w-12 cursor-pointer items-center rounded-full px-1 transition-colors",
-                    toggle.checked ? "bg-primary" : "bg-slate-200",
-                  )}>
-                    <div className={cn(
-                      "h-5 w-5 rounded-full bg-white shadow transition-transform",
-                      toggle.checked ? "translate-x-5" : "translate-x-0",
-                    )} />
-                  </div>
-                </div>
-              ))}
+              {Object.entries(TOGGLE_KEY_MAP).map(([key, meta]) => {
+                const setting = settingsMap.get(key);
+                if (!setting) return null;
+                return <SettingsToggle key={key} setting={setting} label={meta.label} subtitle={meta.subtitle} onSave={handleSave} />;
+              })}
             </CardContent>
           </Card>
 
