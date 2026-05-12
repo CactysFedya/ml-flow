@@ -39,6 +39,7 @@ import {
   TimerReset,
   Upload,
   Workflow,
+  Trash2,
   Zap,
 } from "lucide-react";
 import {
@@ -60,9 +61,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useSettings, useUpdateSetting } from "@/hooks/useSettings";
-import { usePipelines } from "@/hooks/usePipelines";
+import { usePipelines, useCreatePipeline } from "@/hooks/usePipelines";
 import { useDatasets } from "@/hooks/useDatasets";
-import type { SettingItem } from "@/lib/api";
+import { useTrainingRuns, useCreateTrainingRun, useDeleteTrainingRun } from "@/hooks/useTraining";
+import { useModels, useCreateModel, useDeleteModel } from "@/hooks/useModels";
+import type { SettingItem, TrainingRunItem, ModelItem as ApiModelItem } from "@/lib/api";
 
 const trainingMetricData = [
   { epoch: 0, train: 0.08, val: 0.04 },
@@ -451,6 +454,11 @@ export function LabelingPage() {
 }
 
 export function AutoLabelPage() {
+  const { data: datasets = [] } = useDatasets();
+  const { data: apiModels = [] } = useModels();
+  const selectedDataset = datasets[0] ?? null;
+  const selectedModel = apiModels[0] ?? null;
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
@@ -502,17 +510,17 @@ export function AutoLabelPage() {
                       <ImageIcon className="h-6 w-6 text-slate-500" />
                     </div>
                     <div>
-                      <div className="ui-section-title">Coco Dataset v1.2</div>
-                      <div className="mt-1 text-[length:var(--font-sm)] text-slate-500">Object Detection • YOLO Format</div>
+                      <div className="ui-section-title">{selectedDataset ? `${selectedDataset.name} ${selectedDataset.version}` : "No datasets available"}</div>
+                      <div className="mt-1 text-[length:var(--font-sm)] text-slate-500">{selectedDataset?.task ?? "—"} • {selectedDataset?.format ?? "—"}</div>
                     </div>
                   </div>
                   <ChevronDown className="h-4 w-4 text-slate-400" />
                 </div>
                 <div className="grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
-                  <StatInline icon={FileImage} value="118,000" label="Images" />
-                  <StatInline icon={Layers3} value="80" label="Classes" />
-                  <StatInline icon={CheckCircle2} value="94,400" label="Annotated" />
-                  <StatInline icon={HardDrive} value="68.4 GB" label="Size" />
+                  <StatInline icon={FileImage} value={selectedDataset ? String(selectedDataset.stats.images) : "0"} label="Images" />
+                  <StatInline icon={Layers3} value={selectedDataset ? String(selectedDataset.stats.classes) : "0"} label="Classes" />
+                  <StatInline icon={CheckCircle2} value={selectedDataset ? String(selectedDataset.stats.annotations) : "0"} label="Annotated" />
+                  <StatInline icon={HardDrive} value={datasets.length ? `${datasets.length} datasets` : "—"} label="Available" />
                 </div>
               </CardContent>
             </Card>
@@ -525,7 +533,7 @@ export function AutoLabelPage() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
                       <Bot className="h-5 w-5" />
                     </div>
-                    <div className="ui-section-title">YOLOv8n.pt</div>
+                    <div className="ui-section-title">{selectedModel ? selectedModel.name : "YOLOv8n.pt"}</div>
                   </div>
                   <div className="flex items-center gap-4">
                     <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">
@@ -535,9 +543,9 @@ export function AutoLabelPage() {
                   </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-3">
-                  <DataChip label="Type" value="Object Detection" />
-                  <DataChip label="Classes" value="80" />
-                  <DataChip label="Input Size" value="640 × 640" />
+                  <DataChip label="Type" value={selectedModel?.model_type ?? "Object Detection"} />
+                  <DataChip label="Architecture" value={selectedModel?.architecture ?? "YOLOv8n"} />
+                  <DataChip label="Models Available" value={String(apiModels.length || 1)} />
                 </div>
               </CardContent>
             </Card>
@@ -642,19 +650,43 @@ export function AutoLabelPage() {
 }
 
 export function TrainingPage() {
+  const { data: runs = [], isLoading } = useTrainingRuns();
+  const createRun = useCreateTrainingRun();
+  const deleteRun = useDeleteTrainingRun();
+  const activeRun = runs.find((r) => r.status === "Running") ?? runs[0] ?? null;
+  const runCount = runs.length;
+
+  const handleNewTraining = () => {
+    createRun.mutate({
+      name: `Training Run #${runCount + 1}`,
+      model_name: "YOLOv8s",
+      epochs: 50,
+      batch_size: 16,
+      image_size: 640,
+      optimizer: "SGD",
+      learning_rate: 0.01,
+    });
+  };
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
-      <PageIntro title="Training" subtitle="Train your models on the selected dataset" />
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Training" subtitle="Train your models on the selected dataset" />
+        <Button className="h-11 gap-2" onClick={handleNewTraining} disabled={createRun.isPending}>
+          <Plus className="h-4 w-4" />
+          New Training
+        </Button>
+      </div>
       <TabBar tabs={["Overview", "Configuration", "Logs", "Artifacts", "TensorBoard", "Hyperparameters"]} active="Overview" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(270px,300px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <MiniMetricCard icon={Activity} label="Status" value="Running" subtitle="Training in progress" accent="text-emerald-500" />
-            <MiniMetricCard icon={Gauge} label="Epoch" value="24 / 50" subtitle={<ProgressMini progress={48} />} />
-            <MiniMetricCard icon={Clock3} label="Elapsed Time" value="01:23:45" subtitle="Started 10:15:30 AM" />
-            <MiniMetricCard icon={TimerReset} label="ETA" value="01:47:12" subtitle="Estimated time left" />
-            <MiniMetricCard icon={Zap} label="Best mAP@0.5" value="0.92" subtitle="At epoch 21" />
+            <MiniMetricCard icon={Activity} label="Status" value={isLoading ? "..." : activeRun?.status ?? "No runs"} subtitle={activeRun ? `${activeRun.name}` : "Start a training run"} accent="text-emerald-500" />
+            <MiniMetricCard icon={Gauge} label="Epoch" value={activeRun ? `${activeRun.current_epoch} / ${activeRun.epochs}` : "0 / 0"} subtitle={<ProgressMini progress={activeRun ? (activeRun.current_epoch / activeRun.epochs) * 100 : 0} />} />
+            <MiniMetricCard icon={Clock3} label="Total Runs" value={isLoading ? "..." : String(runCount)} subtitle={`${runs.filter(r => r.status === "Completed").length} completed`} />
+            <MiniMetricCard icon={TimerReset} label="Elapsed Time" value={activeRun ? `${Math.floor(activeRun.elapsed_seconds / 60)}m ${activeRun.elapsed_seconds % 60}s` : "—"} subtitle="Current run" />
+            <MiniMetricCard icon={Zap} label="Best mAP@0.5" value={activeRun ? activeRun.best_map50.toFixed(3) : "—"} subtitle={activeRun ? `Epoch ${activeRun.current_epoch}` : "No data"} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
@@ -770,16 +802,16 @@ export function TrainingPage() {
               <SectionHeading title="Training Information" />
               <InfoList
                 items={[
-                  ["Model", "YOLOv8m"],
-                  ["Dataset", "Coco Dataset v1.2 (v1.2)"],
-                  ["Data Split", "Train (94,400 images)"],
-                  ["Image Size", "640 × 640"],
-                  ["Batch Size", "16"],
-                  ["Optimizer", "SGD"],
-                  ["Learning Rate", "0.01"],
-                  ["Device", "0: NVIDIA RTX 4090 (24GB)"],
-                  ["AMP", "Enabled"],
-                  ["Seed", "42"],
+                  ["Model", activeRun?.model_name ?? "—"],
+                  ["Epochs", activeRun ? `${activeRun.current_epoch} / ${activeRun.epochs}` : "—"],
+                  ["Image Size", activeRun ? `${activeRun.image_size} × ${activeRun.image_size}` : "—"],
+                  ["Batch Size", activeRun ? String(activeRun.batch_size) : "—"],
+                  ["Optimizer", activeRun?.optimizer ?? "—"],
+                  ["Learning Rate", activeRun ? String(activeRun.learning_rate) : "—"],
+                  ["Device", activeRun?.device ?? "auto"],
+                  ["Status", activeRun?.status ?? "—"],
+                  ["Best mAP@0.5", activeRun ? activeRun.best_map50.toFixed(4) : "—"],
+                  ["Precision", activeRun ? activeRun.precision.toFixed(4) : "—"],
                 ]}
               />
               <Button variant="secondary" className="h-11 w-full gap-2 border border-slate-200 bg-white">
@@ -853,21 +885,44 @@ export function TrainingPage() {
 }
 
 export function AutoMLPage() {
+  const { data: runs = [], isLoading } = useTrainingRuns();
+  const createRun = useCreateTrainingRun();
+  const bestRun = runs.reduce<TrainingRunItem | null>((best, r) => (!best || r.best_map50 > best.best_map50 ? r : best), null);
+  const completedCount = runs.filter((r) => r.status === "Completed").length;
+  const runningCount = runs.filter((r) => r.status === "Running").length;
+  const totalTime = runs.reduce((acc, r) => acc + r.elapsed_seconds, 0);
+
+  const handleAutoMLRun = () => {
+    const modelChoices = ["YOLOv8n", "YOLOv8s", "YOLOv8m", "YOLOv8l"];
+    const model = modelChoices[runs.length % modelChoices.length];
+    createRun.mutate({
+      name: `AutoML Run #${runs.length + 1}`,
+      model_name: model,
+      epochs: 200,
+      batch_size: 16,
+      image_size: 640,
+    });
+  };
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-center gap-3">
         <PageIntro title="AutoML" subtitle="Automatically find the best model and hyperparameters for your dataset" />
         <Badge className="mt-1">Beta</Badge>
+        <Button className="ml-auto h-11 gap-2" onClick={handleAutoMLRun} disabled={createRun.isPending}>
+          <Zap className="h-4 w-4" />
+          Start AutoML Run
+        </Button>
       </div>
       <TabBar tabs={["Overview", "Runs", "Compare", "Leaderboard", "Settings"]} active="Overview" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MiniMetricCard icon={Zap} label="Best Metrics (mAP@0.5)" value="0.912" subtitle="YOLOv8s • Run #12" />
-            <MiniMetricCard icon={Activity} label="Total Runs" value="24" subtitle="Completed: 18 • Running: 2" />
-            <MiniMetricCard icon={Clock3} label="Total Time" value="6h 42m" subtitle="Total compute time" />
-            <MiniMetricCard icon={Sparkles} label="Estimated Cost" value="$3.24" subtitle="Based on your hardware" />
+            <MiniMetricCard icon={Zap} label="Best Metrics (mAP@0.5)" value={bestRun ? bestRun.best_map50.toFixed(3) : "—"} subtitle={bestRun ? `${bestRun.model_name} • ${bestRun.name}` : "No runs yet"} />
+            <MiniMetricCard icon={Activity} label="Total Runs" value={isLoading ? "..." : String(runs.length)} subtitle={`Completed: ${completedCount} • Running: ${runningCount}`} />
+            <MiniMetricCard icon={Clock3} label="Total Time" value={`${Math.floor(totalTime / 3600)}h ${Math.floor((totalTime % 3600) / 60)}m`} subtitle="Total compute time" />
+            <MiniMetricCard icon={Sparkles} label="Estimated Cost" value={`$${(totalTime / 3600 * 0.5).toFixed(2)}`} subtitle="Based on your hardware" />
           </div>
 
           <Card>
@@ -1068,6 +1123,12 @@ export function AutoMLPage() {
 }
 
 export function ExperimentsPage() {
+  const { data: runs = [], isLoading } = useTrainingRuns();
+  const completedRuns = runs.filter((r) => r.status === "Completed");
+  const runningRuns = runs.filter((r) => r.status === "Running");
+  const bestRun = runs.reduce<TrainingRunItem | null>((best, r) => (!best || r.best_map50 > best.best_map50 ? r : best), null);
+  const totalTime = runs.reduce((acc, r) => acc + r.elapsed_seconds, 0);
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <PageIntro title="Experiments" subtitle="Track, compare and analyze your training and AutoML experiments" />
@@ -1075,12 +1136,12 @@ export function ExperimentsPage() {
 
       <div className="grid min-h-0 gap-4">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <MiniMetricCard icon={FileText} label="Total Experiments" value="128" subtitle="↑ 18 this week" />
-          <MiniMetricCard icon={CheckCircle2} label="Completed" value="96" subtitle="75% of all runs" />
-          <MiniMetricCard icon={Activity} label="Running" value="8" subtitle="6% of all runs" />
-          <MiniMetricCard icon={Square} label="Failed" value="24" subtitle="19% of all runs" />
-          <MiniMetricCard icon={Zap} label="Best mAP@0.5" value="0.912" subtitle="YOLOv8s • Run #12" />
-          <MiniMetricCard icon={Clock3} label="Total Compute Time" value="312h 45m" subtitle="↑ 56h this week" />
+          <MiniMetricCard icon={FileText} label="Total Experiments" value={isLoading ? "..." : String(runs.length)} subtitle={`${completedRuns.length} completed`} />
+          <MiniMetricCard icon={CheckCircle2} label="Completed" value={isLoading ? "..." : String(completedRuns.length)} subtitle={runs.length ? `${Math.round(completedRuns.length / runs.length * 100)}% of all` : "—"} />
+          <MiniMetricCard icon={Activity} label="Running" value={isLoading ? "..." : String(runningRuns.length)} subtitle={runs.length ? `${Math.round(runningRuns.length / runs.length * 100)}% of all` : "—"} />
+          <MiniMetricCard icon={Square} label="Pending" value={isLoading ? "..." : String(runs.filter(r => r.status === "Pending").length)} subtitle="Queued" />
+          <MiniMetricCard icon={Zap} label="Best mAP@0.5" value={bestRun ? bestRun.best_map50.toFixed(3) : "—"} subtitle={bestRun ? `${bestRun.model_name} • ${bestRun.name}` : "No data"} />
+          <MiniMetricCard icon={Clock3} label="Total Compute Time" value={`${Math.floor(totalTime / 3600)}h ${Math.floor((totalTime % 3600) / 60)}m`} subtitle="All experiments" />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -1121,26 +1182,29 @@ export function ExperimentsPage() {
                       </tr>
                     </thead>
                     <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                      {experiments.map((row) => (
-                        <tr key={row[0]} className="border-t border-slate-100">
+                      {runs.length === 0 && !isLoading ? (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-8 text-center text-slate-400">No experiments yet. Start a training run to see experiments here.</td>
+                        </tr>
+                      ) : runs.map((run) => (
+                        <tr key={run.id} className="border-t border-slate-100">
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-primary">{row[0]}</div>
-                            <div className="ui-meta mt-1">ID: exp_ab1c23d4</div>
+                            <div className="font-semibold text-primary">{run.name}</div>
+                            <div className="ui-meta mt-1">ID: run_{run.id}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <Badge tone={row[1] === "AutoML" ? "warning" : "default"}>{row[1]}</Badge>
+                            <Badge tone="default">Training</Badge>
                           </td>
-                          <td className="px-4 py-3">{row[2]}</td>
-                          <td className="px-4 py-3">{row[3]}</td>
+                          <td className="px-4 py-3">{run.model_name}</td>
+                          <td className="px-4 py-3">Dataset #{run.dataset_id ?? "—"}</td>
                           <td className="px-4 py-3">
-                            <div className="font-medium text-emerald-600">{row[4]}</div>
-                            {row[5] ? <div className="mt-1 text-[length:var(--font-xs)] text-rose-500">{row[5]}</div> : null}
+                            <div className="font-medium text-emerald-600">{run.best_map50.toFixed(3)}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <Badge tone={row[6] === "Failed" ? "danger" : row[6] === "Running" ? "info" : "success"}>{row[6]}</Badge>
+                            <Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge>
                           </td>
-                          <td className="px-4 py-3">{row[7]}</td>
-                          <td className="px-4 py-3">{row[8]}</td>
+                          <td className="px-4 py-3">{new Date(run.created_at).toLocaleDateString()}</td>
+                          <td className="px-4 py-3">{Math.floor(run.elapsed_seconds / 60)}m {run.elapsed_seconds % 60}s</td>
                           <td className="px-4 py-3 text-slate-400">
                             <MoreHorizontal className="h-4 w-4" />
                           </td>
@@ -1150,7 +1214,7 @@ export function ExperimentsPage() {
                   </table>
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-[length:var(--font-xs)] text-slate-400">
-                  <span>Showing 1 to 8 of 128 experiments</span>
+                  <span>Showing {runs.length} experiment{runs.length !== 1 ? "s" : ""}</span>
                   <div className="flex items-center gap-2">
                     {[1, 2, 3].map((page) => (
                       <button
@@ -1330,9 +1394,29 @@ export function ExperimentsPage() {
 }
 
 export function ModelsPage() {
+  const { data: apiModels = [], isLoading: modelsLoading } = useModels();
+  const createModel = useCreateModel();
+  const deleteModelMut = useDeleteModel();
+
+  const handleCreateModel = () => {
+    createModel.mutate({
+      name: `Model #${apiModels.length + 1}`,
+      model_type: "Object Detection",
+      architecture: "YOLOv8s",
+      framework: "PyTorch",
+      dataset_name: "Custom Dataset",
+    });
+  };
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
-      <PageIntro title="Models" subtitle="Manage, evaluate and deploy your trained models" />
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Models" subtitle="Manage, evaluate and deploy your trained models" />
+        <Button className="h-11 gap-2" onClick={handleCreateModel} disabled={createModel.isPending}>
+          <Plus className="h-4 w-4" />
+          Register Model
+        </Button>
+      </div>
       <TabBar tabs={["All Models", "Deployments", "Model Registry", "Exports"]} active="All Models" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(270px,300px)]">
@@ -1349,6 +1433,43 @@ export function ModelsPage() {
               Filters
             </Button>
           </div>
+
+          {apiModels.length > 0 && (
+            <Card>
+              <CardContent className="p-4">
+                <SectionHeading title={`Registered Models (${apiModels.length})`} />
+                <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+                  <table className="w-full border-collapse text-left">
+                    <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
+                      <tr>
+                        {["Name", "Architecture", "Framework", "Status", "mAP@0.5", "Precision", "Recall", "Actions"].map((h) => (
+                          <th key={h} className="px-4 py-3">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="text-[length:var(--font-sm)] text-slate-600">
+                      {apiModels.map((m) => (
+                        <tr key={m.id} className="border-t border-slate-100">
+                          <td className="px-4 py-3 font-semibold text-primary">{m.name}</td>
+                          <td className="px-4 py-3">{m.architecture || "—"}</td>
+                          <td className="px-4 py-3">{m.framework || "—"}</td>
+                          <td className="px-4 py-3"><Badge tone={m.status === "Production" ? "success" : "default"}>{m.status}</Badge></td>
+                          <td className="px-4 py-3 font-medium text-emerald-600">{m.map50 ? m.map50.toFixed(3) : "—"}</td>
+                          <td className="px-4 py-3">{m.precision ? m.precision.toFixed(3) : "—"}</td>
+                          <td className="px-4 py-3">{m.recall ? m.recall.toFixed(3) : "—"}</td>
+                          <td className="px-4 py-3">
+                            <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deleteModelMut.mutate(m.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {models.map((model) => (
             <Card key={model.name}>

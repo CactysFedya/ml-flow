@@ -431,6 +431,34 @@ export async function getModels(projectId?: number | null): Promise<ModelItem[]>
   return readJson<ModelItem[]>(response, "Models request failed");
 }
 
+export interface ModelCreatePayload {
+  name?: string;
+  model_type?: string;
+  architecture?: string;
+  framework?: string;
+  dataset_name?: string;
+  project_id?: number | null;
+  training_run_id?: number | null;
+}
+
+export async function createModel(payload: ModelCreatePayload): Promise<ModelItem> {
+  const response = await fetch(`${API_BASE_URL}/models`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<ModelItem>(response, "Create model failed");
+}
+
+export async function updateTrainingRun(runId: number, payload: Partial<TrainingRunCreatePayload & { status?: string; current_epoch?: number }>): Promise<TrainingRunItem> {
+  const response = await fetch(`${API_BASE_URL}/training/${runId}`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
+  return readJson<TrainingRunItem>(response, "Update training run failed");
+}
+
 export async function deleteModel(modelId: number): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/models/${modelId}`, { method: "DELETE" });
   if (!response.ok) {
