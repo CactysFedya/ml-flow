@@ -329,6 +329,292 @@ export async function openDatasetFolder(datasetId: number): Promise<{ status: st
   return readJson<{ status: string; path: string }>(response, "Open folder request failed");
 }
 
+// ---------------------------------------------------------------------------
+// Training Runs
+// ---------------------------------------------------------------------------
+
+export interface TrainingRunItem {
+  id: number;
+  project_id: number | null;
+  dataset_id: number | null;
+  name: string;
+  model_name: string;
+  status: string;
+  epochs: number;
+  current_epoch: number;
+  batch_size: number;
+  image_size: number;
+  optimizer: string;
+  learning_rate: number;
+  best_map50: number;
+  best_map50_95: number;
+  precision: number;
+  recall: number;
+  box_loss: number;
+  obj_loss: number;
+  cls_loss: number;
+  device: string;
+  elapsed_seconds: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingRunCreatePayload {
+  name?: string;
+  model_name?: string;
+  dataset_id?: number | null;
+  project_id?: number | null;
+  epochs?: number;
+  batch_size?: number;
+  image_size?: number;
+  optimizer?: string;
+  learning_rate?: number;
+  device?: string;
+}
+
+export async function getTrainingRuns(projectId?: number | null): Promise<TrainingRunItem[]> {
+  const params = new URLSearchParams();
+  if (projectId != null) params.set("project_id", String(projectId));
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/training${query ? `?${query}` : ""}`);
+  return readJson<TrainingRunItem[]>(response, "Training runs request failed");
+}
+
+export async function createTrainingRun(payload: TrainingRunCreatePayload): Promise<TrainingRunItem> {
+  const response = await fetch(`${API_BASE_URL}/training`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<TrainingRunItem>(response, "Create training run failed");
+}
+
+export async function deleteTrainingRun(runId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/training/${runId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete training run failed: ${response.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+export interface ModelItem {
+  id: number;
+  project_id: number | null;
+  training_run_id: number | null;
+  name: string;
+  model_type: string;
+  architecture: string;
+  framework: string;
+  dataset_name: string;
+  status: string;
+  version: string;
+  file_path: string;
+  file_size_bytes: number;
+  map50: number;
+  map50_95: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getModels(projectId?: number | null): Promise<ModelItem[]> {
+  const params = new URLSearchParams();
+  if (projectId != null) params.set("project_id", String(projectId));
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/models${query ? `?${query}` : ""}`);
+  return readJson<ModelItem[]>(response, "Models request failed");
+}
+
+export interface ModelCreatePayload {
+  name?: string;
+  model_type?: string;
+  architecture?: string;
+  framework?: string;
+  dataset_name?: string;
+  project_id?: number | null;
+  training_run_id?: number | null;
+}
+
+export async function createModel(payload: ModelCreatePayload): Promise<ModelItem> {
+  const response = await fetch(`${API_BASE_URL}/models`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<ModelItem>(response, "Create model failed");
+}
+
+export async function updateTrainingRun(runId: number, payload: Partial<TrainingRunCreatePayload & { status?: string; current_epoch?: number }>): Promise<TrainingRunItem> {
+  const response = await fetch(`${API_BASE_URL}/training/${runId}`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
+  return readJson<TrainingRunItem>(response, "Update training run failed");
+}
+
+export async function deleteModel(modelId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/models/${modelId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete model failed: ${response.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pipelines
+// ---------------------------------------------------------------------------
+
+export interface PipelineItem {
+  id: number;
+  project_id: number | null;
+  name: string;
+  description: string;
+  status: string;
+  template: string;
+  total_steps: number;
+  current_step: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PipelineCreatePayload {
+  name?: string;
+  description?: string;
+  template?: string;
+  project_id?: number | null;
+}
+
+export interface PipelineDetail extends PipelineItem {
+  steps: PipelineStepItem[];
+  runs: PipelineRunItem[];
+}
+
+export interface PipelineStepItem {
+  id: number;
+  pipeline_id: number;
+  step_order: number;
+  name: string;
+  step_type: string;
+  status: string;
+  config_json: string;
+  duration_seconds: number;
+  created_at: string;
+}
+
+export interface PipelineRunItem {
+  id: number;
+  pipeline_id: number;
+  run_number: number;
+  status: string;
+  duration_seconds: number;
+  created_at: string;
+}
+
+export async function getPipelines(projectId?: number | null): Promise<PipelineItem[]> {
+  const params = new URLSearchParams();
+  if (projectId != null) params.set("project_id", String(projectId));
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/pipelines${query ? `?${query}` : ""}`);
+  return readJson<PipelineItem[]>(response, "Pipelines request failed");
+}
+
+export async function getPipeline(pipelineId: number): Promise<PipelineDetail> {
+  const response = await fetch(`${API_BASE_URL}/pipelines/${pipelineId}`);
+  return readJson<PipelineDetail>(response, "Pipeline request failed");
+}
+
+export async function createPipeline(payload: PipelineCreatePayload): Promise<PipelineItem> {
+  const response = await fetch(`${API_BASE_URL}/pipelines`, {
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<PipelineItem>(response, "Create pipeline failed");
+}
+
+export async function deletePipeline(pipelineId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/pipelines/${pipelineId}`, { method: "DELETE" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(body?.detail ?? `Delete pipeline failed: ${response.status}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+export interface SettingItem {
+  key: string;
+  value: string;
+  category: string;
+}
+
+export async function getSettings(category?: string): Promise<SettingItem[]> {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  const query = params.toString();
+  const response = await fetch(`${API_BASE_URL}/settings${query ? `?${query}` : ""}`);
+  return readJson<SettingItem[]>(response, "Settings request failed");
+}
+
+export async function updateSetting(key: string, value: string): Promise<SettingItem> {
+  const response = await fetch(`${API_BASE_URL}/settings/${key}`, {
+    body: JSON.stringify({ value }),
+    headers: { "Content-Type": "application/json" },
+    method: "PUT",
+  });
+  return readJson<SettingItem>(response, "Update setting failed");
+}
+
+// ---------------------------------------------------------------------------
+// AutoLabel
+// ---------------------------------------------------------------------------
+
+export interface AutoLabelPayload {
+  dataset_id: number;
+  model_path?: string;
+  confidence?: number;
+  iou_threshold?: number;
+  max_detections?: number;
+  skip_annotated?: boolean;
+  device?: string;
+}
+
+export interface AutoLabelResult {
+  total_images: number;
+  processed: number;
+  skipped: number;
+  total_detections: number;
+  classes_added: string[];
+  errors: string[];
+}
+
+export async function runAutoLabel(payload: AutoLabelPayload): Promise<AutoLabelResult> {
+  const response = await fetch(`${API_BASE_URL}/autolabel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return readJson<AutoLabelResult>(response, "AutoLabel request failed");
+}
+
+// ---------------------------------------------------------------------------
+// Database Reset
+// ---------------------------------------------------------------------------
+
+export async function resetDatabase(): Promise<{ status: string; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/reset`, { method: "POST" });
+  return readJson<{ status: string; message: string }>(response, "Reset database failed");
+}
+
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { detail?: string } | null;

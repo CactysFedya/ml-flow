@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -360,7 +360,7 @@ def _format_count(value: int) -> str:
 
 
 def _relative_time(value: datetime) -> str:
-    seconds = max(int((datetime.utcnow() - value).total_seconds()), 0)
+    seconds = max(int((datetime.now(timezone.utc) - value).total_seconds()), 0)
     minutes = seconds // 60
     if minutes < 1:
         return "just now"

@@ -1,10 +1,9 @@
-import type { ReactNode } from "react";
+import React, { useState, useCallback, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   ArrowRight,
-  ArrowUpRight,
   Bot,
-  Boxes,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -27,7 +26,7 @@ import {
   ListFilter,
   MoreHorizontal,
   Play,
-  Rocket,
+  Plus,
   Save,
   Search,
   Settings2,
@@ -36,284 +35,27 @@ import {
   Sparkles,
   Square,
   TimerReset,
-  Upload,
+  Workflow,
+  Trash2,
   Zap,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useSettings, useUpdateSetting } from "@/hooks/useSettings";
+import { usePipelines, useCreatePipeline } from "@/hooks/usePipelines";
+import { useDatasets } from "@/hooks/useDatasets";
+import { useTrainingRuns, useCreateTrainingRun, useDeleteTrainingRun } from "@/hooks/useTraining";
+import { useModels, useCreateModel, useDeleteModel } from "@/hooks/useModels";
+import type { SettingItem, TrainingRunItem, ModelItem as ApiModelItem } from "@/lib/api";
+import { resetDatabase, runAutoLabel } from "@/lib/api";
 
-const trainingMetricData = [
-  { epoch: 0, train: 0.08, val: 0.04 },
-  { epoch: 4, train: 0.44, val: 0.31 },
-  { epoch: 8, train: 0.6, val: 0.46 },
-  { epoch: 12, train: 0.69, val: 0.56 },
-  { epoch: 16, train: 0.79, val: 0.63 },
-  { epoch: 20, train: 0.83, val: 0.69 },
-  { epoch: 24, train: 0.89, val: 0.78 },
-  { epoch: 28, train: 0.9, val: 0.73 },
-  { epoch: 32, train: 0.92, val: 0.78 },
-  { epoch: 36, train: 0.93, val: 0.74 },
-  { epoch: 40, train: 0.94, val: 0.79 },
-  { epoch: 44, train: 0.95, val: 0.76 },
-  { epoch: 48, train: 0.94, val: 0.78 },
-  { epoch: 50, train: 0.95, val: 0.77 },
-];
-
-const trainingLossData = [
-  { epoch: 0, box: 2.4, object: 2.0, cls: 1.8 },
-  { epoch: 3, box: 1.52, object: 1.3, cls: 0.72 },
-  { epoch: 6, box: 1.18, object: 0.95, cls: 0.42 },
-  { epoch: 10, box: 0.92, object: 0.72, cls: 0.26 },
-  { epoch: 16, box: 0.7, object: 0.52, cls: 0.18 },
-  { epoch: 22, box: 0.58, object: 0.42, cls: 0.13 },
-  { epoch: 30, box: 0.48, object: 0.33, cls: 0.11 },
-  { epoch: 40, box: 0.4, object: 0.26, cls: 0.09 },
-  { epoch: 50, box: 0.34, object: 0.21, cls: 0.07 },
-];
-
-const automlPerformanceData = [
-  { time: "08:00", y8s: 0.52, y8m: 0.44, y8n: 0.25, y8l: 0.34 },
-  { time: "08:30", y8s: 0.73, y8m: 0.58, y8n: 0.42, y8l: 0.58 },
-  { time: "09:00", y8s: 0.77, y8m: 0.61, y8n: 0.48, y8l: 0.7 },
-  { time: "09:30", y8s: 0.76, y8m: 0.63, y8n: 0.5, y8l: 0.75 },
-  { time: "10:00", y8s: 0.8, y8m: 0.65, y8n: 0.52, y8l: 0.78 },
-  { time: "11:00", y8s: 0.81, y8m: 0.67, y8n: 0.53, y8l: 0.79 },
-  { time: "12:00", y8s: 0.82, y8m: 0.68, y8n: 0.54, y8l: 0.8 },
-  { time: "13:00", y8s: 0.82, y8m: 0.69, y8n: 0.54, y8l: 0.8 },
-  { time: "14:00", y8s: 0.82, y8m: 0.69, y8n: 0.54, y8l: 0.8 },
-];
-
-const automlScatterData = [
-  { label: "YOLOv8n", params: 3.2, map: 0.54, size: 80 },
-  { label: "YOLOv8s", params: 11.2, map: 0.68, size: 120 },
-  { label: "YOLOv8m", params: 25.9, map: 0.66, size: 150 },
-  { label: "YOLOv8l", params: 43.7, map: 0.76, size: 110 },
-  { label: "YOLOv8x", params: 68.1, map: 0.8, size: 95 },
-  { label: "YOLOv9e", params: 112, map: 0.55, size: 100 },
-  { label: "RT-DETR", params: 450, map: 0.78, size: 130 },
-];
-
-const experimentMapData = Array.from({ length: 20 }, (_, index) => ({
-  epoch: (index + 1) * 10,
-  value: 0.42 + Math.min(index * 0.035, 0.6) + (index > 10 ? 0.01 : 0),
-}));
-
-const experimentLossData = Array.from({ length: 11 }, (_, index) => ({
-  epoch: index * 20,
-  box: Math.max(0.52, 1.3 - index * 0.08),
-  obj: Math.max(0.22, 0.82 - index * 0.06),
-  cls: Math.max(0.08, 0.5 - index * 0.03),
-}));
-
-const modelSparkline = [
-  { point: 0, value: 0.58 },
-  { point: 1, value: 0.6 },
-  { point: 2, value: 0.59 },
-  { point: 3, value: 0.64 },
-  { point: 4, value: 0.66 },
-  { point: 5, value: 0.63 },
-  { point: 6, value: 0.7 },
-  { point: 7, value: 0.73 },
-  { point: 8, value: 0.69 },
-  { point: 9, value: 0.75 },
-  { point: 10, value: 0.71 },
-  { point: 11, value: 0.73 },
-];
-
-const trainingRows = [
-  ["24 (current)", "0.89", "0.71", "0.92", "0.87", "0.42", "0.31", "0.18", "02:31"],
-  ["23", "0.88", "0.70", "0.91", "0.86", "0.47", "0.33", "0.19", "02:29"],
-  ["22", "0.87", "0.69", "0.90", "0.85", "0.51", "0.36", "0.21", "02:30"],
-  ["21", "0.92", "0.72", "0.93", "0.88", "0.45", "0.32", "0.17", "02:32"],
-  ["20", "0.90", "0.71", "0.91", "0.87", "0.48", "0.34", "0.18", "02:31"],
-];
-
-const labelingDatasets = [
-  {
-    name: "Coco Dataset v1.2",
-    status: "Ready",
-    task: "Object Detection",
-    format: "YOLO Format",
-    description: "High quality object detection dataset collected from urban scenarios.",
-    images: "118,000",
-    classes: "80",
-    annotated: "94,400",
-    size: "68.4 GB",
-    progress: 80,
-    split: "Train / Val / Test (94k / 12k / 12k)",
-    lastUsed: "2 hours ago",
-    action: "Continue Labeling",
-    palette: ["#203A62", "#2C5E9E", "#506C8E", "#405A7F", "#1F3855", "#6B88A6", "#35506F", "#7993AF", "#263A58"],
-  },
-  {
-    name: "Custom Dataset v1.0",
-    status: "Draft",
-    task: "Image Classification",
-    format: "Folder Structure",
-    description: "Custom classification dataset for training baseline models.",
-    images: "25,000",
-    classes: "15",
-    annotated: "7,200",
-    size: "12.7 GB",
-    progress: 28,
-    split: "Train / Val / Test (20k / 2.5k / 2.5k)",
-    lastUsed: "3 days ago",
-    action: "Start Labeling",
-    palette: ["#7E7D52", "#3F5744", "#8C815B", "#5B6A52", "#746E49", "#6C7C62", "#554E37", "#8D7448", "#4F5C43"],
-  },
-  {
-    name: "Product Dataset v2.1",
-    status: "Ready",
-    task: "Object Detection",
-    format: "YOLO Format",
-    description: "E-commerce product detection dataset with high quality annotations.",
-    images: "10,500",
-    classes: "35",
-    annotated: "10,050",
-    size: "8.2 GB",
-    progress: 96,
-    split: "Train / Val / Test (8.4k / 1.05k / 1.05k)",
-    lastUsed: "1 week ago",
-    action: "Continue Labeling",
-    palette: ["#56595B", "#BAA77D", "#D1CCBE", "#7F7B72", "#E3E0D8", "#3E4042", "#8A714D", "#A49682", "#C9B79D"],
-  },
-];
-
-const automlRuns = [
-  ["1", "Run #12", "YOLOv8s", "0.912", "0.672", "0.934", "0.881", "11.2M", "200", "45m 12s", "Completed"],
-  ["2", "Run #08", "YOLOv8m", "0.901", "0.658", "0.927", "0.873", "25.9M", "200", "52m 18s", "Completed"],
-  ["3", "Run #05", "YOLOv8s", "0.885", "0.641", "0.912", "0.856", "11.2M", "150", "36m 07s", "Completed"],
-  ["4", "Run #19", "YOLOv8n", "0.872", "0.612", "0.901", "0.841", "3.2M", "200", "28m 33s", "Completed"],
-  ["5", "Run #03", "YOLOv8m", "0.869", "0.607", "0.899", "0.835", "25.9M", "150", "39m 21s", "Completed"],
-  ["6", "Run #21", "YOLOv8l", "0.861", "0.598", "0.892", "0.829", "43.7M", "200", "1h 02m", "Running"],
-];
-
-const experiments = [
-  ["YOLOv8s - AutoML Run #12", "AutoML", "YOLOv8s", "Coco Dataset v1.2", "0.912", "", "Completed", "May 18, 10:32 AM", "45m 12s"],
-  ["YOLOv8m - Baseline", "Training", "YOLOv8m", "Coco Dataset v1.2", "0.901", "-1.2%", "Completed", "May 18, 09:41 AM", "52m 18s"],
-  ["YOLOv8s - Augmented", "Training", "YOLOv8s", "Coco Dataset v1.2", "0.885", "-3.0%", "Completed", "May 18, 08:15 AM", "36m 07s"],
-  ["YOLOv8n - Fast", "Training", "YOLOv8n", "Coco Dataset v1.2", "0.872", "-4.4%", "Completed", "May 18, 11:20 AM", "28m 33s"],
-  ["YOLOv8x - High Accuracy", "Training", "YOLOv8x", "Coco Dataset v1.2", "0.846", "-7.2%", "Failed", "May 17, 05:22 PM", "1h 12m"],
-  ["YOLOv8s - Long Training", "Training", "YOLOv8s", "Coco Dataset v1.2", "-", "", "Running", "May 18, 01:15 PM", "2h 15m"],
-  ["YOLOv8n - Quick Test", "Training", "YOLOv8n", "Coco Dataset v1.2", "-", "", "Running", "May 18, 02:05 PM", "1h 02m"],
-  ["YOLOv8m - Hyperparam Search", "AutoML", "YOLOv8m", "Coco Dataset v1.2", "-", "", "Failed", "May 17, 03:48 PM", "38m 56s"],
-];
-
-const models = [
-  {
-    name: "YOLOv8s - Best Model",
-    status: "Ready",
-    type: "Object Detection",
-    model: "YOLOv8s",
-    framework: "PyTorch",
-    dataset: "Coco Dataset v1.2",
-    source: "Run #12 (AutoML)",
-    created: "May 18, 2025",
-    size: "28.7 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.912",
-    precision: "0.934",
-    recall: "0.881",
-    f1: "0.906",
-    action: "Deploy",
-    palette: ["#203A62", "#2C5E9E", "#506C8E", "#405A7F"],
-  },
-  {
-    name: "YOLOv8m - High Recall",
-    status: "Ready",
-    type: "Object Detection",
-    model: "YOLOv8m",
-    framework: "PyTorch",
-    dataset: "Coco Dataset v1.2",
-    source: "Run #08 (Training)",
-    created: "May 18, 2025",
-    size: "51.2 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.901",
-    precision: "0.927",
-    recall: "0.912",
-    f1: "0.919",
-    action: "Deploy",
-    palette: ["#203A62", "#2C5E9E", "#506C8E", "#405A7F"],
-  },
-  {
-    name: "ResNet50 - Image Classification",
-    status: "Ready",
-    type: "Image Classification",
-    model: "ResNet50",
-    framework: "PyTorch",
-    dataset: "Birds Dataset v1.0",
-    source: "Run #21 (Training)",
-    created: "May 17, 2025",
-    size: "98.4 MB",
-    version: "v1.0.0",
-    metricLabel: "Top-1 Accuracy",
-    metricValue: "0.962",
-    precision: "0.988",
-    recall: "0.961",
-    f1: "0.962",
-    action: "Deploy",
-    palette: ["#677B5A", "#8FA06D", "#C5B891", "#5F6F55"],
-  },
-  {
-    name: "YOLOv8n - Fast Inference",
-    status: "Ready",
-    type: "Object Detection",
-    model: "YOLOv8n",
-    framework: "PyTorch",
-    dataset: "Coco Dataset v1.2",
-    source: "Run #19 (Training)",
-    created: "May 17, 2025",
-    size: "6.1 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.872",
-    precision: "0.899",
-    recall: "0.841",
-    f1: "0.869",
-    action: "Deploy",
-    palette: ["#425162", "#5C6772", "#29303A", "#717D88"],
-  },
-  {
-    name: "YOLOv8s - Product Detection",
-    status: "Archived",
-    type: "Object Detection",
-    model: "YOLOv8s",
-    framework: "PyTorch",
-    dataset: "Product Dataset v1.1",
-    source: "Run #15 (Training)",
-    created: "May 16, 2025",
-    size: "26.3 MB",
-    version: "v1.0.0",
-    metricLabel: "mAP@0.5",
-    metricValue: "0.846",
-    precision: "0.868",
-    recall: "0.809",
-    f1: "0.838",
-    action: "Download",
-    palette: ["#A28153", "#D2C4AE", "#8E7756", "#B6B0A6"],
-  },
-];
 
 export function LabelingPage() {
+  const { data: datasets = [], isLoading } = useDatasets();
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <PageIntro title="Labeling" subtitle="Select a dataset to start or continue annotation" />
@@ -324,85 +66,69 @@ export function LabelingPage() {
           <SearchField placeholder="Search datasets..." className="min-w-[280px] flex-1 xl:max-w-[420px]" />
           <SelectStub label="All Tasks" />
           <SelectStub label="All Status" />
-          <SelectStub label="All Splits" />
           <SelectStub label="Sort: Recently Used" className="ml-auto" />
-          <IconSquare>
-            <SlidersHorizontal className="h-4 w-4" />
-          </IconSquare>
         </div>
       </div>
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(250px,280px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
-          {labelingDatasets.map((dataset) => (
-            <Card key={dataset.name}>
-              <CardContent className="flex gap-5 p-4">
-                <ThumbnailMosaic palette={dataset.palette} label={`+${dataset.images.replace(",000", "K")}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className="ui-section-title">{dataset.name}</h3>
-                        <Badge tone={dataset.status === "Ready" ? "success" : "warning"}>{dataset.status}</Badge>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-[length:var(--font-sm)] text-slate-500">
-                        <span>{dataset.task}</span>
-                        <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>{dataset.format}</span>
-                      </div>
-                      <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">{dataset.description}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="ui-meta">Last used: {dataset.lastUsed}</span>
-                      <button className="text-slate-400" type="button">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
-                    <StatInline icon={FileImage} value={dataset.images} label="Images" />
-                    <StatInline icon={Layers3} value={dataset.classes} label="Classes" />
-                    <StatInline icon={CheckCircle2} value={dataset.annotated} label="Annotated" />
-                    <StatInline icon={HardDrive} value={dataset.size} label="Size" />
-                  </div>
-
-                  <div className="mt-5 flex items-end justify-between gap-4 border-t border-slate-100 pt-4">
-                    <div className="flex-1">
-                      <div className="mb-2 flex items-center justify-between text-[length:var(--font-sm)]">
-                        <span className="font-medium text-slate-600">Progress</span>
-                        <span className="text-slate-500">
-                          {dataset.progress}% ({dataset.annotated} / {dataset.images})
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-100">
-                        <div
-                          className={cn(
-                            "h-full rounded-full",
-                            dataset.progress > 70 ? "bg-emerald-500" : dataset.progress > 40 ? "bg-blue-500" : "bg-amber-500",
-                          )}
-                          style={{ width: `${dataset.progress}%` }}
-                        />
-                      </div>
-                      <div className="mt-3 text-[length:var(--font-sm)] text-slate-500">Split: {dataset.split}</div>
-                    </div>
-                    <div className="flex min-w-[162px] flex-col gap-3">
-                      <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                        <FolderOpen className="h-4 w-4" />
-                        Open Images
-                      </Button>
-                      <Button className="h-11 gap-2">
-                        <Play className="h-4 w-4" />
-                        {dataset.action}
-                      </Button>
-                    </div>
-                  </div>
+          {isLoading ? (
+            <div className="py-12 text-center text-slate-400">Loading datasets...</div>
+          ) : datasets.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <ImageIcon className="h-8 w-8 text-slate-400" />
                 </div>
+                <h3 className="ui-section-title">No datasets yet</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a dataset in the Datasets page first, then come back here to start labeling.</p>
               </CardContent>
             </Card>
-          ))}
+          ) : datasets.map((dataset) => {
+            const imgCount = dataset.stats.images;
+            const annCount = dataset.stats.annotations;
+            const progress = imgCount > 0 ? Math.round((annCount / imgCount) * 100) : 0;
+            return (
+              <Card key={dataset.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <h3 className="ui-section-title">{dataset.name} {dataset.version}</h3>
+                      <Badge tone={dataset.status === "Ready" ? "success" : "warning"}>{dataset.status}</Badge>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[length:var(--font-sm)] text-slate-500">
+                    <span>{dataset.task}</span>
+                    <span className="h-1 w-1 rounded-full bg-slate-300" />
+                    <span>{dataset.format}</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
+                    <StatInline icon={FileImage} value={String(imgCount)} label="Images" />
+                    <StatInline icon={Layers3} value={String(dataset.stats.classes)} label="Classes" />
+                    <StatInline icon={CheckCircle2} value={String(annCount)} label="Annotations" />
+                    <StatInline icon={HardDrive} value={`${progress}%`} label="Progress" />
+                  </div>
+                  <div className="mt-4 border-t border-slate-100 pt-4">
+                    <div className="mb-2 flex items-center justify-between text-[length:var(--font-sm)]">
+                      <span className="font-medium text-slate-600">Annotation Progress</span>
+                      <span className="text-slate-500">{progress}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-100">
+                      <div
+                        className={cn(
+                          "h-full rounded-full",
+                          progress > 70 ? "bg-emerald-500" : progress > 40 ? "bg-blue-500" : "bg-amber-500",
+                        )}
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
 
-          <div className="ui-meta pb-2 text-center">Showing 1 to 3 of 3 datasets</div>
+          {datasets.length > 0 && <div className="ui-meta pb-2 text-center">Showing {datasets.length} dataset{datasets.length !== 1 ? "s" : ""}</div>}
         </div>
 
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
@@ -412,19 +138,7 @@ export function LabelingPage() {
               ["How to annotate", "Best practices and guidelines"],
               ["Keyboard Shortcuts", "Speed up your labeling"],
               ["Annotation Standards", "Project-specific rules"],
-              ["Video Tutorials", "Step-by-step guides"],
             ]}
-          />
-          <SidebarInfoCard
-            title="Recent Activity"
-            action="View All"
-            items={[
-              ["Coco Dataset v1.2", "Annotated 200 images", "2 hours ago"],
-              ["Custom Dataset v1.0", "Annotated 150 images", "1 day ago"],
-              ["Product Dataset v2.1", "Annotated 500 images", "1 week ago"],
-              ["Coco Dataset v1.2", "Annotated 300 images", "1 week ago"],
-            ]}
-            compact
           />
           <Card>
             <CardContent className="space-y-4 p-4">
@@ -432,10 +146,7 @@ export function LabelingPage() {
                 <Sparkles className="h-4 w-4 text-violet-500" />
                 <h3 className="ui-section-title">Tips</h3>
               </div>
-              <p className="text-[length:var(--font-sm)] leading-6 text-slate-500">Use keyboard shortcuts to speed up annotation process</p>
-              <Button variant="secondary" className="h-10 border border-blue-200 bg-blue-50 text-primary">
-                View Shortcuts
-              </Button>
+              <p className="text-[length:var(--font-sm)] leading-6 text-slate-500">Use keyboard shortcuts to speed up annotation. Press Ctrl+Z to undo, arrow keys to navigate.</p>
             </CardContent>
           </Card>
         </div>
@@ -445,30 +156,61 @@ export function LabelingPage() {
 }
 
 export function AutoLabelPage() {
+  const { data: datasets = [] } = useDatasets();
+  const { data: apiModels = [] } = useModels();
+  const queryClient = useQueryClient();
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ total_images: number; processed: number; skipped: number; total_detections: number; classes_added: string[]; errors: string[] } | null>(null);
+  const [confidence, setConfidence] = useState(0.25);
+  const [iouThreshold, setIouThreshold] = useState(0.45);
+  const [skipAnnotated, setSkipAnnotated] = useState(true);
+
+  const selectedDataset = datasets.find((d) => d.id === selectedDatasetId) ?? datasets[0] ?? null;
+  const selectedModel = apiModels[0] ?? null;
+
+  const handleStart = async () => {
+    if (!selectedDataset) return;
+    setRunning(true);
+    setResult(null);
+    try {
+      const res = await runAutoLabel({
+        dataset_id: selectedDataset.id,
+        confidence,
+        iou_threshold: iouThreshold,
+        skip_annotated: skipAnnotated,
+      });
+      setResult(res);
+      queryClient.invalidateQueries();
+    } catch (err) {
+      alert(`AutoLabel failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const currentStep = result ? 4 : running ? 3 : 1;
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
         <PageIntro title="AutoLabel" subtitle="Automatically generate annotations for your dataset using AI models" />
-        <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
-          <Clock3 className="h-4 w-4" />
-          View AutoLabel History
-        </Button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
         <Card>
           <CardContent className="grid gap-4 p-4 sm:grid-cols-4">
             {[
-              { step: "1", title: "Configure", subtitle: "Choose dataset and model", active: true },
-              { step: "2", title: "Preview", subtitle: "Review prediction results", active: false },
-              { step: "3", title: "Run", subtitle: "Process images and generate labels", active: false },
-              { step: "4", title: "Results", subtitle: "Review and save annotations", active: false },
-            ].map(({ active, step, subtitle, title }) => (
+              { step: "1", title: "Configure", subtitle: "Choose dataset and model" },
+              { step: "2", title: "Preview", subtitle: "Review settings" },
+              { step: "3", title: "Run", subtitle: "Processing images..." },
+              { step: "4", title: "Results", subtitle: "Review annotations" },
+            ].map(({ step, subtitle, title }) => (
               <div key={title} className="flex items-center gap-3">
                 <div
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-full text-[length:var(--font-sm)] font-semibold",
-                    active ? "bg-primary text-white" : "bg-slate-100 text-slate-500",
+                    Number(step) <= currentStep ? "bg-primary text-white" : "bg-slate-100 text-slate-500",
                   )}
                 >
                   {step}
@@ -486,146 +228,150 @@ export function AutoLabelPage() {
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
-          <div className="grid gap-4 xl:grid-cols-2">
+          {datasets.length === 0 ? (
             <Card>
-              <CardContent className="space-y-4 p-4">
-                <SectionHeading title="Select Dataset" subtitle="Choose the dataset you want to auto-annotate" />
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100">
-                      <ImageIcon className="h-6 w-6 text-slate-500" />
-                    </div>
-                    <div>
-                      <div className="ui-section-title">Coco Dataset v1.2</div>
-                      <div className="mt-1 text-[length:var(--font-sm)] text-slate-500">Object Detection • YOLO Format</div>
-                    </div>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <ImageIcon className="h-8 w-8 text-slate-400" />
                 </div>
-                <div className="grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
-                  <StatInline icon={FileImage} value="118,000" label="Images" />
-                  <StatInline icon={Layers3} value="80" label="Classes" />
-                  <StatInline icon={CheckCircle2} value="94,400" label="Annotated" />
-                  <StatInline icon={HardDrive} value="68.4 GB" label="Size" />
-                </div>
+                <h3 className="ui-section-title">No datasets available</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a dataset and add images first, then you can use AutoLabel to generate annotations.</p>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardContent className="space-y-4 p-4">
-                <SectionHeading title="Select Model" subtitle="Choose a model for generating annotations" />
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-                      <Bot className="h-5 w-5" />
+          ) : (
+            <>
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardContent className="space-y-4 p-4">
+                    <SectionHeading title="Select Dataset" subtitle="Choose the dataset you want to auto-annotate" />
+                    <select
+                      className="form-input h-11 w-full rounded-xl"
+                      value={selectedDataset?.id ?? ""}
+                      onChange={(e) => setSelectedDatasetId(Number(e.target.value))}
+                    >
+                      {datasets.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name} {d.version}</option>
+                      ))}
+                    </select>
+                    <div className="grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
+                      <StatInline icon={FileImage} value={selectedDataset ? String(selectedDataset.stats.images) : "0"} label="Images" />
+                      <StatInline icon={Layers3} value={selectedDataset ? String(selectedDataset.stats.classes) : "0"} label="Classes" />
+                      <StatInline icon={CheckCircle2} value={selectedDataset ? String(selectedDataset.stats.annotations) : "0"} label="Annotated" />
+                      <StatInline icon={HardDrive} value={`${datasets.length} datasets`} label="Available" />
                     </div>
-                    <div className="ui-section-title">YOLOv8n.pt</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="space-y-4 p-4">
+                    <SectionHeading title="Model" subtitle="Pretrained YOLOv8 model" />
+                    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                        <Bot className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="ui-section-title">YOLOv8n (Nano)</div>
+                        <div className="ui-meta mt-1">80 COCO classes • Pretrained</div>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <DataChip label="Type" value="Object Detection" />
+                      <DataChip label="Architecture" value="YOLOv8n" />
+                      <DataChip label="Classes" value="80 (COCO)" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardContent className="space-y-4 p-4">
+                  <SectionHeading title="Settings" />
+                  <div className="grid gap-5 xl:grid-cols-3">
+                    <SliderField label="Confidence Threshold" value={confidence.toFixed(2)} defaultValue={Math.round(confidence * 100)} />
+                    <SliderField label="IoU Threshold" value={iouThreshold.toFixed(2)} defaultValue={Math.round(iouThreshold * 100)} />
+                    <div className="space-y-2">
+                      <CheckRow checked={skipAnnotated} label="Skip annotated images" subtitle="Do not overwrite existing labels" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                      Manage Models
-                    </button>
-                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="space-y-4 p-4">
+                  <SectionHeading title="Dataset Summary" />
+                  <div className="grid gap-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4 md:grid-cols-3">
+                    <SummaryInfo label="Images to process" value={selectedDataset ? String(selectedDataset.stats.images) : "0"} subtitle="Total images in dataset" />
+                    <SummaryInfo label="Already annotated" value={selectedDataset ? String(selectedDataset.stats.annotations) : "0"} subtitle={skipAnnotated ? "Will be skipped" : "Will be overwritten"} />
+                    <SummaryInfo label="Model" value="YOLOv8n" subtitle="80 COCO classes" />
                   </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <DataChip label="Type" value="Object Detection" />
-                  <DataChip label="Classes" value="80" />
-                  <DataChip label="Input Size" value="640 × 640" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Advanced Options" />
-              <div className="grid gap-5 xl:grid-cols-3">
-                <SliderField label="Confidence Threshold" value="0.25" defaultValue={25} />
-                <SliderField label="IoU Threshold" value="0.45" defaultValue={45} />
-                <div className="space-y-2">
-                  <label className="text-[length:var(--font-sm)] font-medium text-slate-700">Max Detections per Image</label>
-                  <SelectStub label="300" className="w-full" />
-                </div>
-              </div>
-              <button className="inline-flex items-center gap-2 text-[length:var(--font-sm)] font-semibold text-slate-700" type="button">
-                More Options
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </CardContent>
-          </Card>
+              {result && (
+                <Card>
+                  <CardContent className="space-y-4 p-4">
+                    <SectionHeading title="Results" />
+                    <div className="grid gap-4 md:grid-cols-4">
+                      <DataChip label="Processed" value={String(result.processed)} />
+                      <DataChip label="Skipped" value={String(result.skipped)} />
+                      <DataChip label="Detections" value={String(result.total_detections)} />
+                      <DataChip label="New Classes" value={String(result.classes_added.length)} />
+                    </div>
+                    {result.classes_added.length > 0 && (
+                      <div className="text-[length:var(--font-sm)] text-slate-500">
+                        Classes added: {result.classes_added.join(", ")}
+                      </div>
+                    )}
+                    {result.errors.length > 0 && (
+                      <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-[length:var(--font-sm)] text-rose-600">
+                        {result.errors.length} error(s): {result.errors.slice(0, 3).join("; ")}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
-          <Card>
-            <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Dataset Summary" subtitle="Split to process" />
-              <div className="grid gap-4 md:grid-cols-4">
-                <SplitCard title="Train" subtitle="94,000 images" active />
-                <SplitCard title="Validation" subtitle="12,000 images" />
-                <SplitCard title="Test" subtitle="12,000 images" />
-                <SplitCard title="Custom" subtitle="Select specific images" />
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  className="h-11 gap-2 px-6"
+                  onClick={handleStart}
+                  disabled={running || !selectedDataset || selectedDataset.stats.images === 0}
+                >
+                  {running ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      Start AutoLabel
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
               </div>
-              <div className="grid gap-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4 md:grid-cols-3">
-                <SummaryInfo label="Estimated time" value="~1h 24m" subtitle="Estimated based on your hardware and settings" />
-                <SummaryInfo label="Processing Speed" value="~12 images/sec" subtitle="On NVIDIA GeForce RTX 4060 Ti" />
-                <SummaryInfo label="Storage Required" value="~24.5 GB" subtitle="For annotations and metadata" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-              <TimerReset className="h-4 w-4" />
-              Reset
-            </Button>
-            <div className="text-right">
-              <Button className="h-11 gap-2 px-6">
-                Start AutoLabel
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <div className="ui-meta mt-2">You can pause or stop anytime</div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-5 p-4">
-              <div className="ui-section-title">AutoLabel Settings</div>
-              <div className="space-y-3">
-                <div className="ui-card-title text-slate-700">Device</div>
-                <ChoiceCard active title="Auto (Recommended)" subtitle="Use GPU if available" badge="Recommended" />
-                <ChoiceCard title="GPU" subtitle="NVIDIA GeForce RTX 4060 Ti" sideBadge="8 GB VRAM" />
-                <ChoiceCard title="CPU" subtitle="Use system CPU" />
+              <div className="ui-section-title">How AutoLabel Works</div>
+              <div className="space-y-3 text-[length:var(--font-sm)] text-slate-500">
+                <p>1. Select a dataset with images</p>
+                <p>2. Configure confidence threshold (higher = fewer but more accurate detections)</p>
+                <p>3. Click "Start AutoLabel" — the YOLO model will process each image</p>
+                <p>4. Annotations are saved in YOLO format (.txt files) alongside your images</p>
+                <p>5. Review and edit annotations on the Labeling page</p>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-3 border-t border-slate-100 pt-4">
-                <div className="ui-card-title text-slate-700">Processing Options</div>
-                <CheckRow checked label="Skip already annotated images" subtitle="Do not overwrite existing labels" />
-                <CheckRow label="Only unlabeled images" subtitle="Process only images without annotations" />
-                <CheckRow checked label="Save as new version" subtitle="Create a new version with auto-label results" />
-                <CheckRow label="Apply Non-Maximum Suppression (NMS)" subtitle="Remove overlapping boxes" />
-              </div>
-
-              <div className="space-y-3 border-t border-slate-100 pt-4">
-                <div className="ui-card-title text-slate-700">Output Settings</div>
-                <FieldGroup label="Save Annotations to">
-                  <SelectStub label="New Version" className="w-full" />
-                </FieldGroup>
-                <FieldGroup label="Version Name (Optional)">
-                  <input
-                    className="form-input h-11 rounded-xl"
-                    defaultValue="AutoLabel_YOLOv8n_2025-05-18"
-                    type="text"
-                  />
-                </FieldGroup>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                <Button className="h-12 w-full gap-2">
-                  <Eye className="h-4 w-4" />
-                  Preview AutoLabel
-                </Button>
-                <div className="ui-meta text-center">Review results on sample images before running</div>
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <div className="ui-section-title">About the Model</div>
+              <div className="space-y-3 text-[length:var(--font-sm)] text-slate-500">
+                <p><strong>YOLOv8n (Nano)</strong> — lightweight and fast pretrained model from Ultralytics.</p>
+                <p>Detects 80 object classes from the COCO dataset: person, car, bicycle, dog, cat, chair, bottle, and more.</p>
+                <p>The model runs on CPU by default. GPU acceleration is used automatically when available.</p>
               </div>
             </CardContent>
           </Card>
@@ -636,81 +382,64 @@ export function AutoLabelPage() {
 }
 
 export function TrainingPage() {
+  const { data: runs = [], isLoading } = useTrainingRuns();
+  const createRun = useCreateTrainingRun();
+  const deleteRun = useDeleteTrainingRun();
+  const activeRun = runs.find((r) => r.status === "Running") ?? runs[0] ?? null;
+  const runCount = runs.length;
+
+  const handleNewTraining = () => {
+    createRun.mutate({
+      name: `Training Run #${runCount + 1}`,
+      model_name: "YOLOv8s",
+      epochs: 50,
+      batch_size: 16,
+      image_size: 640,
+      optimizer: "SGD",
+      learning_rate: 0.01,
+    });
+  };
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
-      <PageIntro title="Training" subtitle="Train your models on the selected dataset" />
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Training" subtitle="Train your models on the selected dataset" />
+        <Button className="h-11 gap-2" onClick={handleNewTraining} disabled={createRun.isPending}>
+          <Plus className="h-4 w-4" />
+          New Training
+        </Button>
+      </div>
       <TabBar tabs={["Overview", "Configuration", "Logs", "Artifacts", "TensorBoard", "Hyperparameters"]} active="Overview" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(270px,300px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <MiniMetricCard icon={Activity} label="Status" value="Running" subtitle="Training in progress" accent="text-emerald-500" />
-            <MiniMetricCard icon={Gauge} label="Epoch" value="24 / 50" subtitle={<ProgressMini progress={48} />} />
-            <MiniMetricCard icon={Clock3} label="Elapsed Time" value="01:23:45" subtitle="Started 10:15:30 AM" />
-            <MiniMetricCard icon={TimerReset} label="ETA" value="01:47:12" subtitle="Estimated time left" />
-            <MiniMetricCard icon={Zap} label="Best mAP@0.5" value="0.92" subtitle="At epoch 21" />
+            <MiniMetricCard icon={Activity} label="Status" value={isLoading ? "..." : activeRun?.status ?? "No runs"} subtitle={activeRun ? `${activeRun.name}` : "Start a training run"} accent="text-emerald-500" />
+            <MiniMetricCard icon={Gauge} label="Epoch" value={activeRun ? `${activeRun.current_epoch} / ${activeRun.epochs}` : "0 / 0"} subtitle={<ProgressMini progress={activeRun ? (activeRun.current_epoch / activeRun.epochs) * 100 : 0} />} />
+            <MiniMetricCard icon={Clock3} label="Total Runs" value={isLoading ? "..." : String(runCount)} subtitle={`${runs.filter(r => r.status === "Completed").length} completed`} />
+            <MiniMetricCard icon={TimerReset} label="Elapsed Time" value={activeRun ? `${Math.floor(activeRun.elapsed_seconds / 60)}m ${activeRun.elapsed_seconds % 60}s` : "—"} subtitle="Current run" />
+            <MiniMetricCard icon={Zap} label="Best mAP@0.5" value={activeRun ? activeRun.best_map50.toFixed(3) : "—"} subtitle={activeRun ? `Epoch ${activeRun.current_epoch}` : "No data"} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Training Metrics" />
-                  <div className="flex items-center gap-2">
-                    <SelectStub label="mAP@0.5" />
-                    <IconSquare active>
-                      <Activity className="h-4 w-4" />
-                    </IconSquare>
-                    <IconSquare>
-                      <ListFilter className="h-4 w-4" />
-                    </IconSquare>
-                    <IconSquare>
-                      <ArrowUpRight className="h-4 w-4" />
-                    </IconSquare>
-                  </div>
-                </div>
+                <SectionHeading title="Training Metrics" />
                 <ChartPanel className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trainingMetricData}>
-                      <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                      <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <YAxis axisLine={false} domain={[0, 1]} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <Tooltip />
-                      <Line dataKey="train" dot={false} name="mAP@0.5" stroke="#2F6DF6" strokeWidth={2.5} type="monotone" />
-                      <Line dataKey="val" dot={false} name="mAP@0.5 (val)" stroke="#8CB1FF" strokeDasharray="4 4" strokeWidth={2.2} type="monotone" />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No metrics yet. Metrics will appear after a training run completes.
+                  </div>
                 </ChartPanel>
-                <div className="mt-3 flex items-center justify-center gap-5 text-[length:var(--font-xs)] text-slate-500">
-                  <LegendDot color="#2F6DF6" label="mAP@0.5" />
-                  <LegendDot color="#8CB1FF" label="mAP@0.5 (val)" dashed />
-                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Loss Curves" />
-                  <SelectStub label="All Losses" />
-                </div>
-                <div className="mb-2 flex flex-wrap items-center justify-end gap-5 text-[length:var(--font-xs)] text-slate-500">
-                  <LegendDot color="#2F6DF6" label="Box Loss" />
-                  <LegendDot color="#9B6CFF" label="Object Loss" />
-                  <LegendDot color="#22C55E" label="Class Loss" />
-                </div>
+                <SectionHeading title="Loss Curves" />
                 <ChartPanel className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trainingLossData}>
-                      <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                      <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <YAxis axisLine={false} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <Tooltip />
-                      <Line dataKey="box" dot={false} stroke="#2F6DF6" strokeWidth={2.4} type="monotone" />
-                      <Line dataKey="object" dot={false} stroke="#9B6CFF" strokeWidth={2.4} type="monotone" />
-                      <Line dataKey="cls" dot={false} stroke="#22C55E" strokeWidth={2.4} type="monotone" />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No loss data yet. Loss curves will appear during training.
+                  </div>
                 </ChartPanel>
               </CardContent>
             </Card>
@@ -718,12 +447,12 @@ export function TrainingPage() {
 
           <Card>
             <CardContent className="p-4">
-              <SectionHeading title="Training Progress" />
+              <SectionHeading title="Training Runs" />
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
                 <table className="w-full border-collapse text-left">
                   <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
                     <tr>
-                      {["Epoch", "mAP@0.5", "mAP@0.5:0.95", "Precision", "Recall", "Box Loss", "Obj Loss", "Cls Loss", "Time"].map((header) => (
+                      {["Name", "Model", "Epochs", "Best mAP@0.5", "Precision", "Status", "Duration", "Actions"].map((header) => (
                         <th key={header} className="px-4 py-3">
                           {header}
                         </th>
@@ -731,29 +460,29 @@ export function TrainingPage() {
                     </tr>
                   </thead>
                   <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                    {trainingRows.map((row) => (
-                      <tr key={row[0]} className="border-t border-slate-100">
-                        {row.map((cell, index) => (
-                          <td
-                            key={`${row[0]}-${index}`}
-                            className={cn(
-                              "px-4 py-3",
-                              row[0].includes("current") && index === 0 && "font-semibold text-primary",
-                              row[0] === "21" && index > 0 && index < 8 && "font-semibold text-emerald-600",
-                            )}
-                          >
-                            {cell}
-                          </td>
-                        ))}
+                    {runs.length === 0 && !isLoading ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No training runs yet. Click &quot;New Training&quot; to start.</td>
+                      </tr>
+                    ) : runs.map((run) => (
+                      <tr key={run.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-semibold text-primary">{run.name}</td>
+                        <td className="px-4 py-3">{run.model_name}</td>
+                        <td className="px-4 py-3">{run.current_epoch} / {run.epochs}</td>
+                        <td className="px-4 py-3 font-medium text-emerald-600">{run.best_map50.toFixed(3)}</td>
+                        <td className="px-4 py-3">{run.precision.toFixed(3)}</td>
+                        <td className="px-4 py-3"><Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge></td>
+                        <td className="px-4 py-3">{Math.floor(run.elapsed_seconds / 60)}m {run.elapsed_seconds % 60}s</td>
+                        <td className="px-4 py-3">
+                          <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deleteRun.mutate(run.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <button className="mt-4 inline-flex items-center gap-2 text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                Show more
-                <ChevronDown className="h-4 w-4" />
-              </button>
             </CardContent>
           </Card>
         </div>
@@ -764,16 +493,16 @@ export function TrainingPage() {
               <SectionHeading title="Training Information" />
               <InfoList
                 items={[
-                  ["Model", "YOLOv8m"],
-                  ["Dataset", "Coco Dataset v1.2 (v1.2)"],
-                  ["Data Split", "Train (94,400 images)"],
-                  ["Image Size", "640 × 640"],
-                  ["Batch Size", "16"],
-                  ["Optimizer", "SGD"],
-                  ["Learning Rate", "0.01"],
-                  ["Device", "0: NVIDIA RTX 4090 (24GB)"],
-                  ["AMP", "Enabled"],
-                  ["Seed", "42"],
+                  ["Model", activeRun?.model_name ?? "—"],
+                  ["Epochs", activeRun ? `${activeRun.current_epoch} / ${activeRun.epochs}` : "—"],
+                  ["Image Size", activeRun ? `${activeRun.image_size} × ${activeRun.image_size}` : "—"],
+                  ["Batch Size", activeRun ? String(activeRun.batch_size) : "—"],
+                  ["Optimizer", activeRun?.optimizer ?? "—"],
+                  ["Learning Rate", activeRun ? String(activeRun.learning_rate) : "—"],
+                  ["Device", activeRun?.device ?? "auto"],
+                  ["Status", activeRun?.status ?? "—"],
+                  ["Best mAP@0.5", activeRun ? activeRun.best_map50.toFixed(4) : "—"],
+                  ["Precision", activeRun ? activeRun.precision.toFixed(4) : "—"],
                 ]}
               />
               <Button variant="secondary" className="h-11 w-full gap-2 border border-slate-200 bg-white">
@@ -809,35 +538,10 @@ export function TrainingPage() {
 
           <Card>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <SectionHeading title="Recent Checkpoints" />
-                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                  View all
-                </button>
+              <SectionHeading title="Recent Checkpoints" />
+              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
+                No checkpoints yet. Checkpoints will appear during training.
               </div>
-              {[
-                ["epoch_24.pt", "Latest", "10:24:31 AM", "128.4 MB"],
-                ["epoch_20.pt", "", "10:15:12 AM", "128.1 MB"],
-                ["epoch_15.pt", "", "10:05:43 AM", "127.8 MB"],
-              ].map(([name, badge, time, size]) => (
-                <div key={name} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="ui-card-title truncate">{name}</div>
-                      {badge ? <Badge tone="success">{badge}</Badge> : null}
-                    </div>
-                    <div className="ui-meta mt-1">
-                      {time} • {size}
-                    </div>
-                  </div>
-                  <button className="text-slate-400" type="button">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
             </CardContent>
           </Card>
         </div>
@@ -847,31 +551,54 @@ export function TrainingPage() {
 }
 
 export function AutoMLPage() {
+  const { data: runs = [], isLoading } = useTrainingRuns();
+  const createRun = useCreateTrainingRun();
+  const bestRun = runs.reduce<TrainingRunItem | null>((best, r) => (!best || r.best_map50 > best.best_map50 ? r : best), null);
+  const completedCount = runs.filter((r) => r.status === "Completed").length;
+  const runningCount = runs.filter((r) => r.status === "Running").length;
+  const totalTime = runs.reduce((acc, r) => acc + r.elapsed_seconds, 0);
+
+  const handleAutoMLRun = () => {
+    const modelChoices = ["YOLOv8n", "YOLOv8s", "YOLOv8m", "YOLOv8l"];
+    const model = modelChoices[runs.length % modelChoices.length];
+    createRun.mutate({
+      name: `AutoML Run #${runs.length + 1}`,
+      model_name: model,
+      epochs: 200,
+      batch_size: 16,
+      image_size: 640,
+    });
+  };
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-center gap-3">
         <PageIntro title="AutoML" subtitle="Automatically find the best model and hyperparameters for your dataset" />
         <Badge className="mt-1">Beta</Badge>
+        <Button className="ml-auto h-11 gap-2" onClick={handleAutoMLRun} disabled={createRun.isPending}>
+          <Zap className="h-4 w-4" />
+          Start AutoML Run
+        </Button>
       </div>
       <TabBar tabs={["Overview", "Runs", "Compare", "Leaderboard", "Settings"]} active="Overview" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MiniMetricCard icon={Zap} label="Best Metrics (mAP@0.5)" value="0.912" subtitle="YOLOv8s • Run #12" />
-            <MiniMetricCard icon={Activity} label="Total Runs" value="24" subtitle="Completed: 18 • Running: 2" />
-            <MiniMetricCard icon={Clock3} label="Total Time" value="6h 42m" subtitle="Total compute time" />
-            <MiniMetricCard icon={Sparkles} label="Estimated Cost" value="$3.24" subtitle="Based on your hardware" />
+            <MiniMetricCard icon={Zap} label="Best Metrics (mAP@0.5)" value={bestRun ? bestRun.best_map50.toFixed(3) : "—"} subtitle={bestRun ? `${bestRun.model_name} • ${bestRun.name}` : "No runs yet"} />
+            <MiniMetricCard icon={Activity} label="Total Runs" value={isLoading ? "..." : String(runs.length)} subtitle={`Completed: ${completedCount} • Running: ${runningCount}`} />
+            <MiniMetricCard icon={Clock3} label="Total Time" value={`${Math.floor(totalTime / 3600)}h ${Math.floor((totalTime % 3600) / 60)}m`} subtitle="Total compute time" />
+            <MiniMetricCard icon={Sparkles} label="Estimated Cost" value={`$${(totalTime / 3600 * 0.5).toFixed(2)}`} subtitle="Based on your hardware" />
           </div>
 
           <Card>
             <CardContent className="p-4">
-              <SectionHeading title="Top Runs" />
+              <SectionHeading title="Runs" />
               <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
                 <table className="w-full border-collapse text-left">
                   <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
                     <tr>
-                      {["Rank", "Run", "Model", "mAP@0.5", "mAP@0.5:0.95", "Precision", "Recall", "Params", "Epochs", "Time", "Status"].map((header) => (
+                      {["#", "Name", "Model", "mAP@0.5", "Precision", "Epochs", "Status", "Duration"].map((header) => (
                         <th key={header} className="px-4 py-3">
                           {header}
                         </th>
@@ -879,106 +606,48 @@ export function AutoMLPage() {
                     </tr>
                   </thead>
                   <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                    {automlRuns.map((row) => (
-                      <tr key={row[1]} className="border-t border-slate-100">
-                        {row.map((cell, index) => (
-                          <td key={`${row[1]}-${index}`} className="px-4 py-3">
-                            {index === 10 ? <Badge tone={cell === "Running" ? "info" : "success"}>{cell}</Badge> : cell}
-                          </td>
-                        ))}
+                    {runs.length === 0 && !isLoading ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No runs yet. Click &quot;Start AutoML Run&quot; to begin.</td>
+                      </tr>
+                    ) : [...runs].sort((a, b) => b.best_map50 - a.best_map50).map((run, idx) => (
+                      <tr key={run.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-medium">{idx + 1}</td>
+                        <td className="px-4 py-3 font-semibold text-primary">{run.name}</td>
+                        <td className="px-4 py-3">{run.model_name}</td>
+                        <td className="px-4 py-3 font-medium text-emerald-600">{run.best_map50.toFixed(3)}</td>
+                        <td className="px-4 py-3">{run.precision.toFixed(3)}</td>
+                        <td className="px-4 py-3">{run.current_epoch} / {run.epochs}</td>
+                        <td className="px-4 py-3"><Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge></td>
+                        <td className="px-4 py-3">{Math.floor(run.elapsed_seconds / 60)}m {run.elapsed_seconds % 60}s</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <button className="mt-4 inline-flex items-center gap-2 text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                View all runs
-                <ArrowRight className="h-4 w-4" />
-              </button>
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr_280px]">
+          <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Performance Over Time" />
-                  <SelectStub label="mAP@0.5" />
-                </div>
+                <SectionHeading title="Performance Over Time" />
                 <ChartPanel className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={automlPerformanceData}>
-                      <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                      <XAxis axisLine={false} dataKey="time" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <YAxis axisLine={false} domain={[0, 1]} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                      <Tooltip />
-                      <Line dataKey="y8s" dot={false} stroke="#2F6DF6" strokeWidth={2.2} type="monotone" />
-                      <Line dataKey="y8m" dot={false} stroke="#EAB308" strokeWidth={2.2} type="monotone" />
-                      <Line dataKey="y8n" dot={false} stroke="#8B5CF6" strokeWidth={2.2} type="monotone" />
-                      <Line dataKey="y8l" dot={false} stroke="#EF4444" strokeWidth={2.2} type="monotone" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartPanel>
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-[length:var(--font-xs)] text-slate-500">
-                  <LegendDot color="#2F6DF6" label="YOLOv8s" />
-                  <LegendDot color="#EAB308" label="YOLOv8m" />
-                  <LegendDot color="#8B5CF6" label="YOLOv8n" />
-                  <LegendDot color="#EF4444" label="YOLOv8l" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <SectionHeading title="Model Size vs Performance" />
-                  <SelectStub label="All Models" />
-                </div>
-                <ChartPanel className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart>
-                      <CartesianGrid stroke="#E8EEF6" />
-                      <XAxis
-                        axisLine={false}
-                        dataKey="params"
-                        name="Model Size (Parameters)"
-                        tick={{ fill: "#98A2B3", fontSize: 11 }}
-                        tickLine={false}
-                        type="number"
-                      />
-                      <YAxis
-                        axisLine={false}
-                        dataKey="map"
-                        domain={[0.3, 0.9]}
-                        tick={{ fill: "#98A2B3", fontSize: 11 }}
-                        tickLine={false}
-                        type="number"
-                      />
-                      <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                      <Scatter data={automlScatterData} fill="#2F6DF6" />
-                    </ScatterChart>
-                  </ResponsiveContainer>
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No performance data yet. Charts will appear after AutoML runs.
+                  </div>
                 </ChartPanel>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="space-y-4 p-4">
-                <SectionHeading title="Hyperparameter Importance" />
-                {[
-                  ["Image Size", 0.32],
-                  ["Learning Rate", 0.24],
-                  ["Batch Size", 0.18],
-                  ["Weight Decay", 0.12],
-                  ["Momentum", 0.08],
-                  ["Augmentation", 0.06],
-                ].map(([label, value]) => (
-                  <ImportanceRow key={String(label)} label={String(label)} value={Number(value)} />
-                ))}
-                <button className="inline-flex items-center gap-2 text-[length:var(--font-sm)] font-medium text-primary" type="button">
-                  <CircleHelp className="h-4 w-4" />
-                  How it works?
-                </button>
+              <CardContent className="p-4">
+                <SectionHeading title="Model Comparison" />
+                <ChartPanel className="h-[220px]">
+                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                    No comparison data yet. Run multiple models to see comparisons.
+                  </div>
+                </ChartPanel>
               </CardContent>
             </Card>
           </div>
@@ -1029,28 +698,19 @@ export function AutoMLPage() {
 
           <Card>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <SectionHeading title="Recent AutoML Runs" />
-                <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                  View All
-                </button>
-              </div>
-              {[
-                ["AutoML Run #24", "YOLOv8s • 18 / 30 trials", "Running"],
-                ["AutoML Run #23", "YOLOv8m • 30 / 30 trials", "Completed"],
-                ["AutoML Run #22", "YOLOv8n • 30 / 30 trials", "Completed"],
-                ["AutoML Run #21", "YOLOv8l • 22 / 30 trials", "Failed"],
-                ["AutoML Run #20", "YOLOv8s • 30 / 30 trials", "Completed"],
-              ].map(([title, subtitle, status]) => (
-                <div key={title} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+              <SectionHeading title="Recent Runs" />
+              {runs.length === 0 ? (
+                <div className="py-4 text-center text-[length:var(--font-sm)] text-slate-400">No runs yet</div>
+              ) : runs.slice(0, 5).map((run) => (
+                <div key={run.id} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-primary">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="ui-card-title truncate">{title}</div>
-                    <div className="ui-meta mt-1">{subtitle}</div>
+                    <div className="ui-card-title truncate">{run.name}</div>
+                    <div className="ui-meta mt-1">{run.model_name} • {run.current_epoch}/{run.epochs} epochs</div>
                   </div>
-                  <Badge tone={status === "Failed" ? "danger" : status === "Running" ? "info" : "success"}>{status}</Badge>
+                  <Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge>
                 </div>
               ))}
             </CardContent>
@@ -1062,6 +722,12 @@ export function AutoMLPage() {
 }
 
 export function ExperimentsPage() {
+  const { data: runs = [], isLoading } = useTrainingRuns();
+  const completedRuns = runs.filter((r) => r.status === "Completed");
+  const runningRuns = runs.filter((r) => r.status === "Running");
+  const bestRun = runs.reduce<TrainingRunItem | null>((best, r) => (!best || r.best_map50 > best.best_map50 ? r : best), null);
+  const totalTime = runs.reduce((acc, r) => acc + r.elapsed_seconds, 0);
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <PageIntro title="Experiments" subtitle="Track, compare and analyze your training and AutoML experiments" />
@@ -1069,12 +735,12 @@ export function ExperimentsPage() {
 
       <div className="grid min-h-0 gap-4">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-          <MiniMetricCard icon={FileText} label="Total Experiments" value="128" subtitle="↑ 18 this week" />
-          <MiniMetricCard icon={CheckCircle2} label="Completed" value="96" subtitle="75% of all runs" />
-          <MiniMetricCard icon={Activity} label="Running" value="8" subtitle="6% of all runs" />
-          <MiniMetricCard icon={Square} label="Failed" value="24" subtitle="19% of all runs" />
-          <MiniMetricCard icon={Zap} label="Best mAP@0.5" value="0.912" subtitle="YOLOv8s • Run #12" />
-          <MiniMetricCard icon={Clock3} label="Total Compute Time" value="312h 45m" subtitle="↑ 56h this week" />
+          <MiniMetricCard icon={FileText} label="Total Experiments" value={isLoading ? "..." : String(runs.length)} subtitle={`${completedRuns.length} completed`} />
+          <MiniMetricCard icon={CheckCircle2} label="Completed" value={isLoading ? "..." : String(completedRuns.length)} subtitle={runs.length ? `${Math.round(completedRuns.length / runs.length * 100)}% of all` : "—"} />
+          <MiniMetricCard icon={Activity} label="Running" value={isLoading ? "..." : String(runningRuns.length)} subtitle={runs.length ? `${Math.round(runningRuns.length / runs.length * 100)}% of all` : "—"} />
+          <MiniMetricCard icon={Square} label="Pending" value={isLoading ? "..." : String(runs.filter(r => r.status === "Pending").length)} subtitle="Queued" />
+          <MiniMetricCard icon={Zap} label="Best mAP@0.5" value={bestRun ? bestRun.best_map50.toFixed(3) : "—"} subtitle={bestRun ? `${bestRun.model_name} • ${bestRun.name}` : "No data"} />
+          <MiniMetricCard icon={Clock3} label="Total Compute Time" value={`${Math.floor(totalTime / 3600)}h ${Math.floor((totalTime % 3600) / 60)}m`} subtitle="All experiments" />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -1115,26 +781,29 @@ export function ExperimentsPage() {
                       </tr>
                     </thead>
                     <tbody className="text-[length:var(--font-sm)] text-slate-600">
-                      {experiments.map((row) => (
-                        <tr key={row[0]} className="border-t border-slate-100">
+                      {runs.length === 0 && !isLoading ? (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-8 text-center text-slate-400">No experiments yet. Start a training run to see experiments here.</td>
+                        </tr>
+                      ) : runs.map((run) => (
+                        <tr key={run.id} className="border-t border-slate-100">
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-primary">{row[0]}</div>
-                            <div className="ui-meta mt-1">ID: exp_ab1c23d4</div>
+                            <div className="font-semibold text-primary">{run.name}</div>
+                            <div className="ui-meta mt-1">ID: run_{run.id}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <Badge tone={row[1] === "AutoML" ? "warning" : "default"}>{row[1]}</Badge>
+                            <Badge tone="default">Training</Badge>
                           </td>
-                          <td className="px-4 py-3">{row[2]}</td>
-                          <td className="px-4 py-3">{row[3]}</td>
+                          <td className="px-4 py-3">{run.model_name}</td>
+                          <td className="px-4 py-3">Dataset #{run.dataset_id ?? "—"}</td>
                           <td className="px-4 py-3">
-                            <div className="font-medium text-emerald-600">{row[4]}</div>
-                            {row[5] ? <div className="mt-1 text-[length:var(--font-xs)] text-rose-500">{row[5]}</div> : null}
+                            <div className="font-medium text-emerald-600">{run.best_map50.toFixed(3)}</div>
                           </td>
                           <td className="px-4 py-3">
-                            <Badge tone={row[6] === "Failed" ? "danger" : row[6] === "Running" ? "info" : "success"}>{row[6]}</Badge>
+                            <Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge>
                           </td>
-                          <td className="px-4 py-3">{row[7]}</td>
-                          <td className="px-4 py-3">{row[8]}</td>
+                          <td className="px-4 py-3">{new Date(run.created_at).toLocaleDateString()}</td>
+                          <td className="px-4 py-3">{Math.floor(run.elapsed_seconds / 60)}m {run.elapsed_seconds % 60}s</td>
                           <td className="px-4 py-3 text-slate-400">
                             <MoreHorizontal className="h-4 w-4" />
                           </td>
@@ -1144,7 +813,7 @@ export function ExperimentsPage() {
                   </table>
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-[length:var(--font-xs)] text-slate-400">
-                  <span>Showing 1 to 8 of 128 experiments</span>
+                  <span>Showing {runs.length} experiment{runs.length !== 1 ? "s" : ""}</span>
                   <div className="flex items-center gap-2">
                     {[1, 2, 3].map((page) => (
                       <button
@@ -1163,6 +832,7 @@ export function ExperimentsPage() {
               </CardContent>
             </Card>
 
+            {bestRun && (
             <Card>
               <CardContent className="space-y-4 p-4">
                 <TabBar tabs={["Metrics", "Charts", "System", "Artifacts", "Logs", "Config", "Notes"]} active="Metrics" />
@@ -1171,23 +841,15 @@ export function ExperimentsPage() {
                     <CardContent className="space-y-3 p-4">
                       <div className="ui-card-title">Key Metrics (Best)</div>
                       {[
-                        ["mAP@0.5", "0.912", "↑ 2.1%"],
-                        ["mAP@0.5:0.95", "0.672", "↑ 1.8%"],
-                        ["Precision", "0.934", "↑ 1.4%"],
-                        ["Recall", "0.881", "↑ 1.6%"],
-                        ["F1 Score", "0.906", "↑ 1.7%"],
-                      ].map(([label, value, delta]) => (
+                        ["mAP@0.5", bestRun.best_map50.toFixed(3)],
+                        ["Precision", bestRun.precision.toFixed(3)],
+                        ["Recall", bestRun.recall.toFixed(3)],
+                      ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between text-[length:var(--font-sm)]">
                           <span className="text-slate-500">{label}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="font-semibold text-slate-900">{value}</span>
-                            <span className="text-emerald-600">{delta}</span>
-                          </div>
+                          <span className="font-semibold text-slate-900">{value}</span>
                         </div>
                       ))}
-                      <Button variant="secondary" className="h-10 w-full border border-slate-200 bg-white">
-                        View All Metrics
-                      </Button>
                     </CardContent>
                   </Card>
 
@@ -1195,21 +857,9 @@ export function ExperimentsPage() {
                     <CardContent className="p-4">
                       <SectionHeading title="mAP@0.5 over Epochs" />
                       <ChartPanel className="mt-4 h-[220px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={experimentMapData}>
-                            <defs>
-                              <linearGradient id="mapFill" x1="0" x2="0" y1="0" y2="1">
-                                <stop offset="0%" stopColor="#2F6DF6" stopOpacity={0.28} />
-                                <stop offset="100%" stopColor="#2F6DF6" stopOpacity={0.02} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                            <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <YAxis axisLine={false} domain={[0, 1.2]} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <Tooltip />
-                            <Area dataKey="value" fill="url(#mapFill)" stroke="#2F6DF6" strokeWidth={2.2} type="monotone" />
-                          </AreaChart>
-                        </ResponsiveContainer>
+                        <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                          Chart data will appear after training runs complete.
+                        </div>
                       </ChartPanel>
                     </CardContent>
                   </Card>
@@ -1218,89 +868,52 @@ export function ExperimentsPage() {
                     <CardContent className="p-4">
                       <SectionHeading title="Loss over Epochs" />
                       <ChartPanel className="mt-4 h-[220px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={experimentLossData}>
-                            <CartesianGrid stroke="#E8EEF6" vertical={false} />
-                            <XAxis axisLine={false} dataKey="epoch" tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <YAxis axisLine={false} tick={{ fill: "#98A2B3", fontSize: 11 }} tickLine={false} />
-                            <Tooltip />
-                            <Line dataKey="box" dot={false} stroke="#2F6DF6" strokeWidth={2.2} type="monotone" />
-                            <Line dataKey="obj" dot={false} stroke="#22C55E" strokeWidth={2.2} type="monotone" />
-                            <Line dataKey="cls" dot={false} stroke="#8B5CF6" strokeWidth={2.2} type="monotone" />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
+                          Loss data will appear after training runs complete.
+                        </div>
                       </ChartPanel>
                     </CardContent>
                   </Card>
                 </div>
               </CardContent>
             </Card>
+            )}
           </div>
 
           <div className="min-h-0 space-y-4 overflow-auto pr-1">
             <Card>
               <CardContent className="space-y-4 p-4">
-                <div className="flex items-start justify-between">
-                  <SectionHeading title="Selected Experiment" />
-                  <button className="text-slate-400" type="button">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                </div>
-                <div>
-                  <div className="ui-stat-value">YOLOv8s - AutoML Run #12</div>
-                  <div className="ui-meta mt-1">ID: exp_8f3d2a1e</div>
-                </div>
-                <InfoList
-                  items={[
-                    ["Type", "AutoML"],
-                    ["Model", "YOLOv8s"],
-                    ["Dataset", "Coco Dataset v1.2"],
-                    ["Created At", "May 18, 2025, 10:32 AM"],
-                    ["Duration", "45m 12s"],
-                    ["Best mAP@0.5", "0.912"],
-                  ]}
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button variant="secondary" className="h-11 gap-2 border border-blue-200 bg-blue-50 text-primary">
-                    <Play className="h-4 w-4" />
-                    Open in Training
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Activity className="h-4 w-4" />
-                    Compare
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-3 p-4">
-                <SectionHeading title="Latest Artifact" />
-                <div className="rounded-2xl border border-slate-100 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50">
-                      <FileText className="h-5 w-5 text-slate-500" />
+                <SectionHeading title="Selected Experiment" />
+                {bestRun ? (
+                  <>
+                    <div>
+                      <div className="ui-stat-value">{bestRun.name}</div>
+                      <div className="ui-meta mt-1">ID: run_{bestRun.id}</div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="ui-card-title">best.pt</div>
-                      <div className="ui-meta mt-1">Size: 28.7 MB • Updated: May 18, 10:59 AM</div>
+                    <InfoList
+                      items={[
+                        ["Model", bestRun.model_name],
+                        ["Epochs", `${bestRun.current_epoch} / ${bestRun.epochs}`],
+                        ["Status", bestRun.status],
+                        ["Created At", new Date(bestRun.created_at).toLocaleString()],
+                        ["Duration", `${Math.floor(bestRun.elapsed_seconds / 60)}m ${bestRun.elapsed_seconds % 60}s`],
+                        ["Best mAP@0.5", bestRun.best_map50.toFixed(3)],
+                      ]}
+                    />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Button variant="secondary" className="h-11 gap-2 border border-blue-200 bg-blue-50 text-primary">
+                        <Play className="h-4 w-4" />
+                        Open in Training
+                      </Button>
+                      <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+                        <Activity className="h-4 w-4" />
+                        Compare
+                      </Button>
                     </div>
-                    <Badge tone="success">Best Model</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="space-y-3 p-4">
-                <SectionHeading title="Tags" />
-                <div className="flex flex-wrap gap-2">
-                  {["yolov8s", "automl", "baseline", "coco", "exp12"].map((tag) => (
-                    <span key={tag} className="rounded-lg bg-slate-50 px-3 py-1.5 text-[length:var(--font-sm)] font-medium text-slate-600">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  <div className="py-4 text-center text-[length:var(--font-sm)] text-slate-400">No experiment selected</div>
+                )}
               </CardContent>
             </Card>
 
@@ -1324,9 +937,29 @@ export function ExperimentsPage() {
 }
 
 export function ModelsPage() {
+  const { data: apiModels = [], isLoading: modelsLoading } = useModels();
+  const createModel = useCreateModel();
+  const deleteModelMut = useDeleteModel();
+
+  const handleCreateModel = () => {
+    createModel.mutate({
+      name: `Model #${apiModels.length + 1}`,
+      model_type: "Object Detection",
+      architecture: "YOLOv8s",
+      framework: "PyTorch",
+      dataset_name: "Custom Dataset",
+    });
+  };
+
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
-      <PageIntro title="Models" subtitle="Manage, evaluate and deploy your trained models" />
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Models" subtitle="Manage, evaluate and deploy your trained models" />
+        <Button className="h-11 gap-2" onClick={handleCreateModel} disabled={createModel.isPending}>
+          <Plus className="h-4 w-4" />
+          Register Model
+        </Button>
+      </div>
       <TabBar tabs={["All Models", "Deployments", "Model Registry", "Exports"]} active="All Models" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(270px,300px)]">
@@ -1344,194 +977,206 @@ export function ModelsPage() {
             </Button>
           </div>
 
-          {models.map((model) => (
-            <Card key={model.name}>
-              <CardContent className="flex gap-4 p-4">
-                <div className="w-[132px]">
-                  <ModelCover palette={model.palette} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="mb-2 flex items-center gap-2">
-                        {model.name.includes("Best Model") ? <Badge tone="warning">Best Model</Badge> : null}
-                        <Badge tone={model.status === "Archived" ? "default" : "success"}>{model.status}</Badge>
-                      </div>
-                      <div className="ui-section-title">{model.name}</div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:var(--font-sm)] text-slate-500">
-                        <span>{model.type}</span>
-                        <span>•</span>
-                        <span>{model.model}</span>
-                        <span>•</span>
-                        <span>{model.framework}</span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[length:var(--font-xs)]">
-                        <span className="rounded-lg bg-blue-50 px-2.5 py-1 font-medium text-primary">{model.dataset}</span>
-                        <span className="rounded-lg bg-slate-50 px-2.5 py-1 font-medium text-slate-500">{model.source}</span>
-                      </div>
-                      <div className="ui-meta mt-3">
-                        Created: {model.created} • Size: {model.size} • {model.version}
-                      </div>
-                    </div>
-                    <button className="text-slate-400" type="button">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="mt-4 grid gap-4 xl:grid-cols-[220px_90px_90px_90px_1fr_160px]">
-                    <MetricBlock label={model.metricLabel} value={model.metricValue} />
-                    <MetricBlock label="Precision" value={model.precision} compact />
-                    <MetricBlock label="Recall" value={model.recall} compact />
-                    <MetricBlock label="F1 Score" value={model.f1} compact />
-                    <ChartPanel className="h-[80px] border border-slate-100">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={modelSparkline}>
-                          <defs>
-                            <linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1">
-                              <stop offset="0%" stopColor="#4ADE80" stopOpacity={0.26} />
-                              <stop offset="100%" stopColor="#4ADE80" stopOpacity={0.02} />
-                            </linearGradient>
-                          </defs>
-                          <Area dataKey="value" fill="url(#sparkFill)" stroke="#22C55E" strokeWidth={2} type="monotone" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </ChartPanel>
-                    <div className="space-y-2">
-                      <Button className="h-9 w-full gap-2 px-4">
-                        <Rocket className="h-4 w-4" />
-                        {model.action}
-                      </Button>
-                      <div className="grid grid-cols-[1fr_42px] gap-2">
-                        <Button variant="secondary" className="h-9 gap-2 border border-slate-200 bg-white">
-                          <Activity className="h-4 w-4" />
-                          Evaluate
-                        </Button>
-                        <Button variant="secondary" className="h-9 border border-slate-200 bg-white px-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          <div className="flex items-center justify-between pb-2 text-[length:var(--font-xs)] text-slate-400">
-            <span>Showing 1 to 5 of 42 models</span>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3].map((page) => (
-                <button
-                  key={page}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-lg border text-[length:var(--font-sm)]",
-                    page === 1 ? "border-blue-200 bg-blue-50 text-primary" : "border-slate-200 bg-white text-slate-500",
-                  )}
-                  type="button"
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <SectionHeading title={`Models (${apiModels.length})`} />
+              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+                <table className="w-full border-collapse text-left">
+                  <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
+                    <tr>
+                      {["Name", "Architecture", "Framework", "Status", "mAP@0.5", "Precision", "Recall", "Actions"].map((h) => (
+                        <th key={h} className="px-4 py-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="text-[length:var(--font-sm)] text-slate-600">
+                    {apiModels.length === 0 && !modelsLoading ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No models registered yet. Click &quot;Register Model&quot; to add one.</td>
+                      </tr>
+                    ) : apiModels.map((m) => (
+                      <tr key={m.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3 font-semibold text-primary">{m.name}</td>
+                        <td className="px-4 py-3">{m.architecture || "—"}</td>
+                        <td className="px-4 py-3">{m.framework || "—"}</td>
+                        <td className="px-4 py-3"><Badge tone={m.status === "Production" ? "success" : "default"}>{m.status}</Badge></td>
+                        <td className="px-4 py-3 font-medium text-emerald-600">{m.map50 ? m.map50.toFixed(3) : "—"}</td>
+                        <td className="px-4 py-3">{m.precision ? m.precision.toFixed(3) : "—"}</td>
+                        <td className="px-4 py-3">{m.recall ? m.recall.toFixed(3) : "—"}</td>
+                        <td className="px-4 py-3">
+                          <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deleteModelMut.mutate(m.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {apiModels.length > 0 && (
+                <div className="mt-3 text-[length:var(--font-xs)] text-slate-400">Showing {apiModels.length} model{apiModels.length !== 1 ? "s" : ""}</div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-start justify-between">
-                <SectionHeading title="Selected Model" />
-                <button className="text-slate-400" type="button">
-                  ×
-                </button>
-              </div>
-              <div className="flex gap-3">
-                <div className="w-[66px]">
-                  <ModelCover palette={models[0].palette} compact />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Badge tone="warning">Best Model</Badge>
-                    <Badge tone="success">Ready</Badge>
+              <SectionHeading title="Selected Model" />
+              {apiModels.length > 0 ? (
+                <>
+                  <div>
+                    <div className="ui-stat-value">{apiModels[0].name}</div>
+                    <div className="ui-meta mt-1">ID: mdl_{apiModels[0].id}</div>
                   </div>
-                  <div className="ui-stat-value mt-2">{models[0].name}</div>
-                  <div className="ui-meta mt-1">ID: mdl_01JXZG6AK2P3Q7T6E0M5</div>
+                  <InfoList
+                    items={[
+                      ["Type", apiModels[0].model_type || "—"],
+                      ["Framework", apiModels[0].framework || "—"],
+                      ["Architecture", apiModels[0].architecture || "—"],
+                      ["Status", apiModels[0].status],
+                      ["Created At", new Date(apiModels[0].created_at).toLocaleString()],
+                    ]}
+                  />
+                  {(apiModels[0].map50 || apiModels[0].precision || apiModels[0].recall) && (
+                    <Card className="border border-slate-200 shadow-none">
+                      <CardContent className="p-4">
+                        <SectionHeading title="Performance" />
+                        <div className="mt-4 grid gap-2 text-[length:var(--font-sm)]">
+                          {[
+                            ["mAP@0.5", apiModels[0].map50?.toFixed(3)],
+                            ["Precision", apiModels[0].precision?.toFixed(3)],
+                            ["Recall", apiModels[0].recall?.toFixed(3)],
+                          ].filter(([, v]) => v).map(([label, value]) => (
+                            <div key={label} className="flex items-center justify-between">
+                              <span className="text-slate-500">{label}</span>
+                              <span className="font-semibold text-emerald-600">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  <div className="space-y-3">
+                    <SectionHeading title="Actions" />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+                        <Download className="h-4 w-4" />
+                        Download
+                      </Button>
+                      <Button variant="secondary" className="h-11 gap-2 border border-rose-200 bg-rose-50 text-rose-500 hover:bg-rose-100" onClick={() => deleteModelMut.mutate(apiModels[0].id)}>
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="py-4 text-center text-[length:var(--font-sm)] text-slate-400">No model selected</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+
+export function VersionsPage() {
+  const { data: datasets = [], isLoading: datasetsLoading } = useDatasets();
+  const datasetCount = datasets.length;
+
+  return (
+    <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Versions" subtitle="Track dataset versions, compare changes and manage snapshots" />
+        <Button className="h-11 gap-2" disabled={datasetCount === 0}>
+          <Plus className="h-4 w-4" />
+          Create Version
+        </Button>
+      </div>
+      <TabBar tabs={["All Versions", "Compare", "Changelog"]} active="All Versions" />
+
+      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <MiniMetricCard icon={Layers3} label="Datasets" value={datasetsLoading ? "..." : String(datasetCount)} subtitle={`${datasetCount} registered`} />
+            <MiniMetricCard icon={FileText} label="Total Images" value={datasetsLoading ? "..." : String(datasets.reduce((a, d) => a + d.stats.images, 0))} subtitle="Across all datasets" />
+            <MiniMetricCard icon={CheckCircle2} label="Total Annotations" value={datasetsLoading ? "..." : String(datasets.reduce((a, d) => a + d.stats.annotations, 0))} subtitle="Across all datasets" />
+          </div>
+
+          {datasetsLoading ? (
+            <div className="py-12 text-center text-slate-400">Loading...</div>
+          ) : datasets.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <Layers3 className="h-8 w-8 text-slate-400" />
                 </div>
-              </div>
-              <InfoList
-                items={[
-                  ["Type", models[0].type],
-                  ["Framework", models[0].framework],
-                  ["Model", models[0].model],
-                  ["Dataset", models[0].dataset],
-                  ["Source", "AutoML Run #12"],
-                  ["Created At", "May 18, 2025, 10:32 AM"],
-                  ["Updated At", "May 18, 2025, 10:32 AM"],
-                  ["Size", models[0].size],
-                  ["File", "best.pt"],
-                ]}
-              />
-              <Card className="border border-slate-200 shadow-none">
-                <CardContent className="p-4">
-                  <SectionHeading title="Performance (Test Set)" />
-                  <div className="mt-4 grid gap-2 text-[length:var(--font-sm)]">
-                    {[
-                      ["mAP@0.5", "0.912"],
-                      ["mAP@0.5:0.95", "0.672"],
-                      ["Precision", "0.934"],
-                      ["Recall", "0.881"],
-                      ["F1 Score", "0.906"],
-                    ].map(([label, value]) => (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className="text-slate-500">{label}</span>
-                        <span className="font-semibold text-emerald-600">{value}</span>
+                <h3 className="ui-section-title">No versions yet</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a dataset first, then you can create version snapshots to track changes over time.</p>
+              </CardContent>
+            </Card>
+          ) : datasets.map((dataset) => (
+            <Card key={dataset.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-primary">
+                      <Layers3 className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="ui-section-title">{dataset.name}</h3>
+                        <Badge tone={dataset.status === "Ready" ? "success" : "default"}>{dataset.version}</Badge>
                       </div>
-                    ))}
+                      <div className="mt-1 text-[length:var(--font-sm)] text-slate-500">
+                        {dataset.task} • {dataset.format}
+                      </div>
+                    </div>
                   </div>
-                  <button className="mt-4 text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                    View all metrics
-                  </button>
-                </CardContent>
-              </Card>
-              <div className="space-y-3">
-                <SectionHeading title="Actions" />
-                <Button className="h-11 w-full gap-2">
-                  <Rocket className="h-4 w-4" />
-                  Deploy Model
-                </Button>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Activity className="h-4 w-4" />
-                    Evaluate on Dataset
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Download className="h-4 w-4" />
-                    Download Model
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                    <Upload className="h-4 w-4" />
-                    Export
-                  </Button>
-                  <Button variant="secondary" className="h-11 gap-2 border border-rose-200 bg-rose-50 text-rose-500 hover:bg-rose-100">
-                    Delete Model
-                  </Button>
                 </div>
-              </div>
-              <div className="space-y-3">
-                <SectionHeading title="Related" />
-                {[
-                  ["Experiment", "AutoML Run #12"],
-                  ["Dataset", "Coco Dataset v1.2"],
-                  ["Logs", "View training logs"],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between text-[length:var(--font-sm)]">
-                    <span className="text-slate-500">{label}</span>
-                    <button className="inline-flex items-center gap-2 font-medium text-primary" type="button">
-                      {value}
-                      <ArrowUpRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                <div className="mt-4 grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
+                  <StatInline icon={FileImage} value={String(dataset.stats.images)} label="Images" />
+                  <StatInline icon={CheckCircle2} value={String(dataset.stats.annotations)} label="Annotations" />
+                  <StatInline icon={Layers3} value={String(dataset.stats.classes)} label="Classes" />
+                  <StatInline icon={HardDrive} value={String(dataset.stats.videos)} label="Videos" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Create New Version" />
+              <FieldGroup label="Version Label">
+                <input className="form-input h-11 rounded-xl" placeholder="e.g. v1.0" type="text" />
+              </FieldGroup>
+              <FieldGroup label="Description">
+                <textarea
+                  className="min-h-[100px] w-full rounded-xl border border-slate-200 p-3 text-[length:var(--font-sm)] outline-none placeholder:text-slate-400 focus:border-primary"
+                  placeholder="Describe what changed in this version..."
+                />
+              </FieldGroup>
+              <CheckRow checked label="Include all current media files" subtitle="Snapshot all images and videos" />
+              <CheckRow checked label="Include annotations" subtitle="Copy all annotation files" />
+              <Button className="h-12 w-full gap-2" disabled={datasetCount === 0}>
+                <Save className="h-4 w-4" />
+                Create Version Snapshot
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Recent Changes" />
+              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
+                No changes recorded yet.
               </div>
             </CardContent>
           </Card>
@@ -1541,28 +1186,391 @@ export function ModelsPage() {
   );
 }
 
-export function ComingSoonPage({
-  description,
-  title,
-}: {
-  description: string;
-  title: string;
-}) {
+
+
+export function PipelinesPage() {
+  const { data: apiPipelines = [], isLoading: pipelinesLoading } = usePipelines();
+  const createPipeline = useCreatePipeline();
+  const pipelineCount = apiPipelines.length;
+
   return (
-    <section className="ui-page-centered flex h-full w-full items-center justify-center">
-      <Card className="w-full max-w-[680px]">
-        <CardContent className="space-y-4 p-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-primary">
-            <Boxes className="h-7 w-7" />
+    <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+      <div className="flex items-start justify-between gap-4">
+        <PageIntro title="Pipelines" subtitle="Build, manage and run end-to-end ML workflows" />
+        <Button className="h-11 gap-2" onClick={() => createPipeline.mutate({ name: `Pipeline #${pipelineCount + 1}`, description: "New pipeline" })} disabled={createPipeline.isPending}>
+          <Plus className="h-4 w-4" />
+          New Pipeline
+        </Button>
+      </div>
+      <TabBar tabs={["Overview", "Templates", "Runs"]} active="Overview" />
+
+      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <MiniMetricCard icon={Zap} label="Total Pipelines" value={pipelinesLoading ? "..." : String(pipelineCount)} subtitle={`${pipelineCount} registered`} />
+            <MiniMetricCard icon={Activity} label="Status" value={pipelineCount > 0 ? "Ready" : "—"} subtitle={pipelineCount > 0 ? "No active runs" : "Create a pipeline to start"} />
+            <MiniMetricCard icon={Clock3} label="Runs" value="0" subtitle="No pipeline runs yet" />
           </div>
-          <div className="text-[28px] font-semibold tracking-[-0.04em] text-slate-900">{title}</div>
-          <p className="mx-auto max-w-[480px] text-[length:var(--font-md)] leading-7 text-slate-500">{description}</p>
-          <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-[length:var(--font-sm)] text-slate-500">
-            Static UI screen only for now. Functional actions will be connected later.
-          </div>
-        </CardContent>
-      </Card>
+
+          {pipelinesLoading ? (
+            <div className="py-12 text-center text-slate-400">Loading...</div>
+          ) : apiPipelines.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <Workflow className="h-8 w-8 text-slate-400" />
+                </div>
+                <h3 className="ui-section-title">No pipelines yet</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a pipeline to build an end-to-end ML workflow with data import, preprocessing, training and export steps.</p>
+                <Button className="mt-4 h-11 gap-2" onClick={() => createPipeline.mutate({ name: "My First Pipeline", description: "End-to-end ML workflow" })} disabled={createPipeline.isPending}>
+                  <Plus className="h-4 w-4" />
+                  Create First Pipeline
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-4">
+                <SectionHeading title="Pipelines" />
+                <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+                  <table className="w-full border-collapse text-left">
+                    <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
+                      <tr>
+                        {["Name", "Description", "Steps", "Status"].map((header) => (
+                          <th key={header} className="px-4 py-3">{header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="text-[length:var(--font-sm)] text-slate-600">
+                      {apiPipelines.map((p) => (
+                        <tr key={p.id} className="border-t border-slate-100">
+                          <td className="px-4 py-3 font-semibold text-primary">{p.name}</td>
+                          <td className="px-4 py-3">{p.description}</td>
+                          <td className="px-4 py-3">{p.total_steps}</td>
+                          <td className="px-4 py-3"><Badge tone="default">Ready</Badge></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Quick Start" />
+              <p className="text-[length:var(--font-sm)] text-slate-500">Pipelines let you chain steps together: data import → preprocessing → augmentation → training → evaluation → export.</p>
+              <p className="text-[length:var(--font-sm)] text-slate-500">Create a pipeline above and add steps to build your workflow.</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Run History" />
+              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
+                No pipeline runs yet.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </section>
+  );
+}
+
+const SETTINGS_KEY_MAP: Record<string, { label: string; type: "input" | "textarea" | "select" | "path"; section: string }> = {
+  workspace_name: { label: "Workspace Name", type: "input", section: "General" },
+  workspace_description: { label: "Description", type: "textarea", section: "General" },
+  workspace_owner: { label: "Owner", type: "input", section: "General" },
+  default_task: { label: "Default Task", type: "select", section: "General" },
+  data_directory: { label: "Data Directory", type: "path", section: "Storage" },
+  dataset_storage: { label: "Dataset Storage", type: "path", section: "Storage" },
+  model_storage: { label: "Model Storage", type: "path", section: "Storage" },
+  export_directory: { label: "Export Directory", type: "path", section: "Storage" },
+};
+
+const TRAINING_KEY_MAP: Record<string, { label: string; type: "select" | "input" }> = {
+  default_model: { label: "Default Model", type: "select" },
+  default_image_size: { label: "Default Image Size", type: "select" },
+  default_batch_size: { label: "Default Batch Size", type: "input" },
+  default_epochs: { label: "Default Epochs", type: "input" },
+  default_optimizer: { label: "Default Optimizer", type: "select" },
+  default_learning_rate: { label: "Default Learning Rate", type: "input" },
+};
+
+const TOGGLE_KEY_MAP: Record<string, { label: string; subtitle: string }> = {
+  auto_save_annotations: { label: "Auto-save annotations", subtitle: "Automatically save annotation changes every 30 seconds" },
+  auto_scan_sources: { label: "Auto-scan sources", subtitle: "Automatically scan dataset sources for new files" },
+  enable_video_extraction: { label: "Enable video frame extraction", subtitle: "Allow extracting frames from video files in datasets" },
+  show_preview_thumbnails: { label: "Show preview thumbnails", subtitle: "Generate and display image previews in media browser" },
+  enable_experiment_tracking: { label: "Enable experiment tracking", subtitle: "Track metrics, parameters and artifacts for training runs" },
+  dark_mode: { label: "Dark mode", subtitle: "Switch to dark color theme" },
+};
+
+function SettingsField({ setting, type, onSave }: { setting: SettingItem; type: "input" | "textarea" | "select" | "path"; onSave: (key: string, value: string) => void }) {
+  const [value, setValue] = useState(setting.value);
+
+  const handleBlur = useCallback(() => {
+    if (value !== setting.value) onSave(setting.key, value);
+  }, [value, setting.value, setting.key, onSave]);
+
+  if (type === "textarea") {
+    return (
+      <textarea
+        className="min-h-[80px] w-full rounded-xl border border-slate-200 p-3 text-[length:var(--font-sm)] outline-none placeholder:text-slate-400 focus:border-primary"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleBlur}
+      />
+    );
+  }
+  if (type === "select") {
+    return <SelectStub label={value} className="w-full" />;
+  }
+  if (type === "path") {
+    return (
+      <div className="flex items-center gap-2">
+        <input className="form-input h-11 flex-1 rounded-xl" value={value} onChange={(e) => setValue(e.target.value)} onBlur={handleBlur} type="text" />
+        <Button variant="secondary" className="h-11 border border-slate-200 bg-white px-3">
+          <FolderOpen className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+  return <input className="form-input h-11 rounded-xl" value={value} onChange={(e) => setValue(e.target.value)} onBlur={handleBlur} type="text" />;
+}
+
+function SettingsToggle({ setting, label, subtitle, onSave }: { setting: SettingItem; label: string; subtitle: string; onSave: (key: string, value: string) => void }) {
+  const checked = setting.value === "true";
+  return (
+    <div
+      className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 cursor-pointer"
+      onClick={() => onSave(setting.key, checked ? "false" : "true")}
+    >
+      <div>
+        <div className="text-[length:var(--font-md)] font-medium text-slate-700">{label}</div>
+        <div className="ui-meta mt-1">{subtitle}</div>
+      </div>
+      <div className={cn(
+        "flex h-7 w-12 items-center rounded-full px-1 transition-colors",
+        checked ? "bg-primary" : "bg-slate-200",
+      )}>
+        <div className={cn(
+          "h-5 w-5 rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-5" : "translate-x-0",
+        )} />
+      </div>
+    </div>
+  );
+}
+
+export function SettingsPage() {
+  const { data: settings, isLoading } = useSettings();
+  const updateSetting = useUpdateSetting();
+
+  const settingsMap = new Map<string, SettingItem>();
+  if (settings) {
+    for (const s of settings) settingsMap.set(s.key, s);
+  }
+
+  const handleSave = useCallback((key: string, value: string) => {
+    updateSetting.mutate({ key, value });
+  }, [updateSetting]);
+
+  if (isLoading) {
+    return (
+      <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+        <PageIntro title="Settings" subtitle="Configure your workspace preferences and integrations" />
+        <TabBar tabs={["General", "Storage", "Training", "Integrations", "Advanced"]} active="General" />
+        <div className="flex items-center justify-center py-20 text-slate-400">Loading settings...</div>
+      </section>
+    );
+  }
+
+  const generalSettings = Object.entries(SETTINGS_KEY_MAP).filter(([, v]) => v.section === "General");
+  const storageSettings = Object.entries(SETTINGS_KEY_MAP).filter(([, v]) => v.section === "Storage");
+
+  return (
+    <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
+      <PageIntro title="Settings" subtitle="Configure your workspace preferences and integrations" />
+      <TabBar tabs={["General", "Storage", "Training", "Integrations", "Advanced"]} active="General" />
+
+      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(290px,330px)]">
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <Card>
+            <CardContent className="space-y-5 p-4">
+              <SectionHeading title="General" />
+              {generalSettings.map(([key, meta]) => {
+                const setting = settingsMap.get(key);
+                if (!setting) return null;
+                return (
+                  <FieldGroup key={key} label={meta.label}>
+                    <SettingsField setting={setting} type={meta.type} onSave={handleSave} />
+                  </FieldGroup>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-5 p-4">
+              <SectionHeading title="Storage" />
+              {storageSettings.map(([key, meta]) => {
+                const setting = settingsMap.get(key);
+                if (!setting) return null;
+                return (
+                  <FieldGroup key={key} label={meta.label}>
+                    <SettingsField setting={setting} type={meta.type} onSave={handleSave} />
+                  </FieldGroup>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-5 p-4">
+              <SectionHeading title="Training Defaults" />
+              <div className="grid gap-5 xl:grid-cols-2">
+                {Object.entries(TRAINING_KEY_MAP).map(([key, meta]) => {
+                  const setting = settingsMap.get(key);
+                  if (!setting) return null;
+                  return (
+                    <FieldGroup key={key} label={meta.label}>
+                      <SettingsField setting={setting} type={meta.type} onSave={handleSave} />
+                    </FieldGroup>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Features" subtitle="Enable or disable workspace features" />
+              {Object.entries(TOGGLE_KEY_MAP).map(([key, meta]) => {
+                const setting = settingsMap.get(key);
+                if (!setting) return null;
+                return <SettingsToggle key={key} setting={setting} label={meta.label} subtitle={meta.subtitle} onSave={handleSave} />;
+              })}
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-between gap-3 pb-4">
+            <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
+              <TimerReset className="h-4 w-4" />
+              Reset to Defaults
+            </Button>
+            <Button className="h-11 gap-2 px-6">
+              <Save className="h-4 w-4" />
+              Save Settings
+            </Button>
+          </div>
+        </div>
+
+        <div className="min-h-0 space-y-4 overflow-auto pr-1">
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="System Information" />
+              <InfoList
+                items={[
+                  ["Version", "MLForge v2.0.1"],
+                  ["Python", "3.11.9"],
+                  ["Backend", "FastAPI 0.115"],
+                  ["Database", "SQLite"],
+                  ["OS", "Windows 11"],
+                  ["GPU", "NVIDIA RTX 4090"],
+                  ["VRAM", "24 GB"],
+                  ["CUDA", "12.4"],
+                  ["PyTorch", "2.4.0"],
+                ]}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Integrations" />
+              {[
+                { name: "Weights & Biases", status: "Not Connected", connected: false },
+                { name: "MLflow Tracking", status: "Not Connected", connected: false },
+                { name: "TensorBoard", status: "Connected", connected: true },
+                { name: "DVC (Data Version Control)", status: "Not Connected", connected: false },
+              ].map((integration) => (
+                <div key={integration.name} className="flex items-center gap-3 rounded-2xl border border-slate-100 p-3">
+                  <div className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-xl",
+                    integration.connected ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400",
+                  )}>
+                    <Cpu className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="ui-card-title">{integration.name}</div>
+                    <div className="ui-meta mt-1">{integration.status}</div>
+                  </div>
+                  <Button variant="secondary" className={cn(
+                    "h-9 border px-3",
+                    integration.connected ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-slate-200 bg-white",
+                  )}>
+                    {integration.connected ? "Connected" : "Connect"}
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <DangerZoneCard />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+
+function DangerZoneCard() {
+  const [resetting, setResetting] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  const queryClient = useQueryClient();
+
+  const handleReset = async () => {
+    if (!window.confirm("Are you sure you want to clear ALL data? This action cannot be undone.")) return;
+    setResetting(true);
+    try {
+      await resetDatabase();
+      queryClient.invalidateQueries();
+      setDone(true);
+      setTimeout(() => setDone(false), 3000);
+    } catch {
+      alert("Failed to reset database");
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-4">
+        <SectionHeading title="Danger Zone" />
+        <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/30 p-4">
+          <div className="text-[length:var(--font-md)] font-medium text-rose-700">Clear All Data</div>
+          <div className="text-[length:var(--font-sm)] text-rose-500">
+            Delete all training runs, models, pipelines and settings. Projects and datasets are preserved.
+          </div>
+          <Button
+            variant="secondary"
+            className="h-11 gap-2 border border-rose-300 bg-white text-rose-600 hover:bg-rose-50"
+            onClick={handleReset}
+            disabled={resetting}
+          >
+            <Trash2 className="h-4 w-4" />
+            {resetting ? "Clearing..." : done ? "Cleared!" : "Clear Database"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1694,38 +1702,6 @@ function ChartPanel({ children, className }: { children: ReactNode; className?: 
   return <div className={cn("rounded-2xl bg-white", className)}>{children}</div>;
 }
 
-function LegendDot({ color, dashed, label }: { color: string; dashed?: boolean; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className={cn("inline-flex h-0.5 w-4 items-center rounded-full", dashed && "border-t-2 border-dashed bg-transparent")}
-        style={dashed ? { borderColor: color } : { backgroundColor: color }}
-      />
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function ThumbnailMosaic({ label, palette }: { label: string; palette: string[] }) {
-  return (
-    <div className="grid w-[214px] grid-cols-3 gap-2">
-      {palette.map((color, index) => (
-        <div
-          key={`${color}-${index}`}
-          className="relative h-[58px] overflow-hidden rounded-xl"
-          style={{ background: `linear-gradient(145deg, ${color} 0%, rgba(255,255,255,0.12) 100%)` }}
-        >
-          <div className="absolute inset-x-3 top-2 h-4 rounded-full bg-white/14" />
-          <div className="absolute bottom-2 left-3 h-5 w-7 rounded-lg border border-white/18 bg-white/12" />
-          <div className="absolute bottom-2 right-3 h-3 w-3 rounded-full bg-white/18" />
-          {index === palette.length - 1 ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/25 text-[length:var(--font-xl)] font-semibold text-white">{label}</div>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function StatInline({
   icon: Icon,
@@ -1882,17 +1858,6 @@ function FieldGroup({ children, label }: { children: ReactNode; label: string })
   );
 }
 
-function ImportanceRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="grid grid-cols-[1fr_110px_40px] items-center gap-3 text-[length:var(--font-xs)]">
-      <span className="text-slate-600">{label}</span>
-      <div className="h-2 rounded-full bg-slate-100">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${value * 100}%` }} />
-      </div>
-      <span className="text-right text-slate-400">{value.toFixed(2)}</span>
-    </div>
-  );
-}
 
 function FeatureTile({
   icon: Icon,

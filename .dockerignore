@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.egg-info/
+
+# Build artifacts
+frontend/dist/
+*.pyc
+
+# Database
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# OS
+.DS_Store
+._*
+Thumbs.db
+
+# Tests
+backend/tests/
+frontend/src/**/*.test.*

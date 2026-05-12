@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.db.base import Base
 from app.db.session import engine
-from app.models import Dataset, DatasetEventRecord, DatasetRecord, DatasetSourceRecord, Experiment, Project, ProjectRecord  # noqa: F401
+from app.models import Dataset, DatasetEventRecord, DatasetRecord, DatasetSourceRecord, Experiment, ModelRecord, PipelineRecord, PipelineRunRecord, PipelineStepRecord, Project, ProjectRecord, SettingRecord, TrainingRun  # noqa: F401
+
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 def create_app() -> FastAPI:
@@ -26,6 +31,10 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(api_router)
+
+    if FRONTEND_DIST.is_dir():
+        app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+
     return app
 
 
