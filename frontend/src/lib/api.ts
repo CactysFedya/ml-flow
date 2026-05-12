@@ -575,6 +575,38 @@ export async function updateSetting(key: string, value: string): Promise<Setting
 }
 
 // ---------------------------------------------------------------------------
+// AutoLabel
+// ---------------------------------------------------------------------------
+
+export interface AutoLabelPayload {
+  dataset_id: number;
+  model_path?: string;
+  confidence?: number;
+  iou_threshold?: number;
+  max_detections?: number;
+  skip_annotated?: boolean;
+  device?: string;
+}
+
+export interface AutoLabelResult {
+  total_images: number;
+  processed: number;
+  skipped: number;
+  total_detections: number;
+  classes_added: string[];
+  errors: string[];
+}
+
+export async function runAutoLabel(payload: AutoLabelPayload): Promise<AutoLabelResult> {
+  const response = await fetch(`${API_BASE_URL}/autolabel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return readJson<AutoLabelResult>(response, "AutoLabel request failed");
+}
+
+// ---------------------------------------------------------------------------
 // Database Reset
 // ---------------------------------------------------------------------------
 

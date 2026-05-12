@@ -434,6 +434,29 @@ def bulk_update_settings(payload: SettingsBulkUpdate, db: Session = Depends(get_
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# AutoLabel
+# ---------------------------------------------------------------------------
+
+
+@router.post("/autolabel")
+def autolabel(payload: dict, db: Session = Depends(get_db)):  # type: ignore[type-arg]
+    """Run YOLO model on dataset images and save annotations."""
+    from app.services.autolabel_service import AutoLabelRequest, AutoLabelResult, run_autolabel
+
+    try:
+        request = AutoLabelRequest(**payload)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        result = run_autolabel(db, request)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return result
+
+
 @router.post("/reset", status_code=200)
 def reset_database(db: Session = Depends(get_db)) -> dict[str, str]:
     """Delete all training runs, models, pipelines, pipeline steps/runs and settings."""

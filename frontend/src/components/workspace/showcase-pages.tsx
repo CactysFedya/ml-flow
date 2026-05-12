@@ -50,7 +50,7 @@ import { useDatasets } from "@/hooks/useDatasets";
 import { useTrainingRuns, useCreateTrainingRun, useDeleteTrainingRun } from "@/hooks/useTraining";
 import { useModels, useCreateModel, useDeleteModel } from "@/hooks/useModels";
 import type { SettingItem, TrainingRunItem, ModelItem as ApiModelItem } from "@/lib/api";
-import { resetDatabase } from "@/lib/api";
+import { resetDatabase, runAutoLabel } from "@/lib/api";
 
 
 export function LabelingPage() {
@@ -158,33 +158,59 @@ export function LabelingPage() {
 export function AutoLabelPage() {
   const { data: datasets = [] } = useDatasets();
   const { data: apiModels = [] } = useModels();
-  const selectedDataset = datasets[0] ?? null;
+  const queryClient = useQueryClient();
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ total_images: number; processed: number; skipped: number; total_detections: number; classes_added: string[]; errors: string[] } | null>(null);
+  const [confidence, setConfidence] = useState(0.25);
+  const [iouThreshold, setIouThreshold] = useState(0.45);
+  const [skipAnnotated, setSkipAnnotated] = useState(true);
+
+  const selectedDataset = datasets.find((d) => d.id === selectedDatasetId) ?? datasets[0] ?? null;
   const selectedModel = apiModels[0] ?? null;
+
+  const handleStart = async () => {
+    if (!selectedDataset) return;
+    setRunning(true);
+    setResult(null);
+    try {
+      const res = await runAutoLabel({
+        dataset_id: selectedDataset.id,
+        confidence,
+        iou_threshold: iouThreshold,
+        skip_annotated: skipAnnotated,
+      });
+      setResult(res);
+      queryClient.invalidateQueries();
+    } catch (err) {
+      alert(`AutoLabel failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const currentStep = result ? 4 : running ? 3 : 1;
 
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
         <PageIntro title="AutoLabel" subtitle="Automatically generate annotations for your dataset using AI models" />
-        <Button variant="secondary" className="h-10 gap-2 border border-slate-200 bg-white">
-          <Clock3 className="h-4 w-4" />
-          View AutoLabel History
-        </Button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
         <Card>
           <CardContent className="grid gap-4 p-4 sm:grid-cols-4">
             {[
-              { step: "1", title: "Configure", subtitle: "Choose dataset and model", active: true },
-              { step: "2", title: "Preview", subtitle: "Review prediction results", active: false },
-              { step: "3", title: "Run", subtitle: "Process images and generate labels", active: false },
-              { step: "4", title: "Results", subtitle: "Review and save annotations", active: false },
-            ].map(({ active, step, subtitle, title }) => (
+              { step: "1", title: "Configure", subtitle: "Choose dataset and model" },
+              { step: "2", title: "Preview", subtitle: "Review settings" },
+              { step: "3", title: "Run", subtitle: "Processing images..." },
+              { step: "4", title: "Results", subtitle: "Review annotations" },
+            ].map(({ step, subtitle, title }) => (
               <div key={title} className="flex items-center gap-3">
                 <div
                   className={cn(
                     "flex h-8 w-8 items-center justify-center rounded-full text-[length:var(--font-sm)] font-semibold",
-                    active ? "bg-primary text-white" : "bg-slate-100 text-slate-500",
+                    Number(step) <= currentStep ? "bg-primary text-white" : "bg-slate-100 text-slate-500",
                   )}
                 >
                   {step}
@@ -202,146 +228,150 @@ export function AutoLabelPage() {
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
-          <div className="grid gap-4 xl:grid-cols-2">
+          {datasets.length === 0 ? (
             <Card>
-              <CardContent className="space-y-4 p-4">
-                <SectionHeading title="Select Dataset" subtitle="Choose the dataset you want to auto-annotate" />
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-slate-100">
-                      <ImageIcon className="h-6 w-6 text-slate-500" />
-                    </div>
-                    <div>
-                      <div className="ui-section-title">{selectedDataset ? `${selectedDataset.name} ${selectedDataset.version}` : "No datasets available"}</div>
-                      <div className="mt-1 text-[length:var(--font-sm)] text-slate-500">{selectedDataset?.task ?? "—"} • {selectedDataset?.format ?? "—"}</div>
-                    </div>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <ImageIcon className="h-8 w-8 text-slate-400" />
                 </div>
-                <div className="grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
-                  <StatInline icon={FileImage} value={selectedDataset ? String(selectedDataset.stats.images) : "0"} label="Images" />
-                  <StatInline icon={Layers3} value={selectedDataset ? String(selectedDataset.stats.classes) : "0"} label="Classes" />
-                  <StatInline icon={CheckCircle2} value={selectedDataset ? String(selectedDataset.stats.annotations) : "0"} label="Annotated" />
-                  <StatInline icon={HardDrive} value={datasets.length ? `${datasets.length} datasets` : "—"} label="Available" />
-                </div>
+                <h3 className="ui-section-title">No datasets available</h3>
+                <p className="mt-2 text-[length:var(--font-sm)] text-slate-500">Create a dataset and add images first, then you can use AutoLabel to generate annotations.</p>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardContent className="space-y-4 p-4">
-                <SectionHeading title="Select Model" subtitle="Choose a model for generating annotations" />
-                <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-                      <Bot className="h-5 w-5" />
+          ) : (
+            <>
+              <div className="grid gap-4 xl:grid-cols-2">
+                <Card>
+                  <CardContent className="space-y-4 p-4">
+                    <SectionHeading title="Select Dataset" subtitle="Choose the dataset you want to auto-annotate" />
+                    <select
+                      className="form-input h-11 w-full rounded-xl"
+                      value={selectedDataset?.id ?? ""}
+                      onChange={(e) => setSelectedDatasetId(Number(e.target.value))}
+                    >
+                      {datasets.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name} {d.version}</option>
+                      ))}
+                    </select>
+                    <div className="grid gap-3 text-[length:var(--font-sm)] text-slate-500 md:grid-cols-4">
+                      <StatInline icon={FileImage} value={selectedDataset ? String(selectedDataset.stats.images) : "0"} label="Images" />
+                      <StatInline icon={Layers3} value={selectedDataset ? String(selectedDataset.stats.classes) : "0"} label="Classes" />
+                      <StatInline icon={CheckCircle2} value={selectedDataset ? String(selectedDataset.stats.annotations) : "0"} label="Annotated" />
+                      <StatInline icon={HardDrive} value={`${datasets.length} datasets`} label="Available" />
                     </div>
-                    <div className="ui-section-title">{selectedModel ? selectedModel.name : "YOLOv8n.pt"}</div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="space-y-4 p-4">
+                    <SectionHeading title="Model" subtitle="Pretrained YOLOv8 model" />
+                    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
+                        <Bot className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="ui-section-title">YOLOv8n (Nano)</div>
+                        <div className="ui-meta mt-1">80 COCO classes • Pretrained</div>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <DataChip label="Type" value="Object Detection" />
+                      <DataChip label="Architecture" value="YOLOv8n" />
+                      <DataChip label="Classes" value="80 (COCO)" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardContent className="space-y-4 p-4">
+                  <SectionHeading title="Settings" />
+                  <div className="grid gap-5 xl:grid-cols-3">
+                    <SliderField label="Confidence Threshold" value={confidence.toFixed(2)} defaultValue={Math.round(confidence * 100)} />
+                    <SliderField label="IoU Threshold" value={iouThreshold.toFixed(2)} defaultValue={Math.round(iouThreshold * 100)} />
+                    <div className="space-y-2">
+                      <CheckRow checked={skipAnnotated} label="Skip annotated images" subtitle="Do not overwrite existing labels" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <button className="text-[length:var(--font-sm)] font-semibold text-primary" type="button">
-                      Manage Models
-                    </button>
-                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="space-y-4 p-4">
+                  <SectionHeading title="Dataset Summary" />
+                  <div className="grid gap-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4 md:grid-cols-3">
+                    <SummaryInfo label="Images to process" value={selectedDataset ? String(selectedDataset.stats.images) : "0"} subtitle="Total images in dataset" />
+                    <SummaryInfo label="Already annotated" value={selectedDataset ? String(selectedDataset.stats.annotations) : "0"} subtitle={skipAnnotated ? "Will be skipped" : "Will be overwritten"} />
+                    <SummaryInfo label="Model" value="YOLOv8n" subtitle="80 COCO classes" />
                   </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <DataChip label="Type" value={selectedModel?.model_type ?? "Object Detection"} />
-                  <DataChip label="Architecture" value={selectedModel?.architecture ?? "YOLOv8n"} />
-                  <DataChip label="Models Available" value={String(apiModels.length || 1)} />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Advanced Options" />
-              <div className="grid gap-5 xl:grid-cols-3">
-                <SliderField label="Confidence Threshold" value="0.25" defaultValue={25} />
-                <SliderField label="IoU Threshold" value="0.45" defaultValue={45} />
-                <div className="space-y-2">
-                  <label className="text-[length:var(--font-sm)] font-medium text-slate-700">Max Detections per Image</label>
-                  <SelectStub label="300" className="w-full" />
-                </div>
-              </div>
-              <button className="inline-flex items-center gap-2 text-[length:var(--font-sm)] font-semibold text-slate-700" type="button">
-                More Options
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </CardContent>
-          </Card>
+              {result && (
+                <Card>
+                  <CardContent className="space-y-4 p-4">
+                    <SectionHeading title="Results" />
+                    <div className="grid gap-4 md:grid-cols-4">
+                      <DataChip label="Processed" value={String(result.processed)} />
+                      <DataChip label="Skipped" value={String(result.skipped)} />
+                      <DataChip label="Detections" value={String(result.total_detections)} />
+                      <DataChip label="New Classes" value={String(result.classes_added.length)} />
+                    </div>
+                    {result.classes_added.length > 0 && (
+                      <div className="text-[length:var(--font-sm)] text-slate-500">
+                        Classes added: {result.classes_added.join(", ")}
+                      </div>
+                    )}
+                    {result.errors.length > 0 && (
+                      <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-[length:var(--font-sm)] text-rose-600">
+                        {result.errors.length} error(s): {result.errors.slice(0, 3).join("; ")}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
-          <Card>
-            <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Dataset Summary" subtitle="Split to process" />
-              <div className="grid gap-4 md:grid-cols-4">
-                <SplitCard title="Train" subtitle={selectedDataset ? `${Math.round(selectedDataset.stats.images * 0.8)} images` : "— images"} active />
-                <SplitCard title="Validation" subtitle={selectedDataset ? `${Math.round(selectedDataset.stats.images * 0.1)} images` : "— images"} />
-                <SplitCard title="Test" subtitle={selectedDataset ? `${Math.round(selectedDataset.stats.images * 0.1)} images` : "— images"} />
-                <SplitCard title="Custom" subtitle="Select specific images" />
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  className="h-11 gap-2 px-6"
+                  onClick={handleStart}
+                  disabled={running || !selectedDataset || selectedDataset.stats.images === 0}
+                >
+                  {running ? (
+                    <>Processing...</>
+                  ) : (
+                    <>
+                      Start AutoLabel
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
               </div>
-              <div className="grid gap-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-4 md:grid-cols-3">
-                <SummaryInfo label="Estimated time" value={selectedDataset ? `~${Math.max(1, Math.round(selectedDataset.stats.images / 720))}m` : "—"} subtitle="Estimated based on your hardware and settings" />
-                <SummaryInfo label="Processing Speed" value="~12 images/sec" subtitle="Estimated speed" />
-                <SummaryInfo label="Images to process" value={selectedDataset ? String(selectedDataset.stats.images) : "0"} subtitle="Total images in dataset" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-              <TimerReset className="h-4 w-4" />
-              Reset
-            </Button>
-            <div className="text-right">
-              <Button className="h-11 gap-2 px-6">
-                Start AutoLabel
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <div className="ui-meta mt-2">You can pause or stop anytime</div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-5 p-4">
-              <div className="ui-section-title">AutoLabel Settings</div>
-              <div className="space-y-3">
-                <div className="ui-card-title text-slate-700">Device</div>
-                <ChoiceCard active title="Auto (Recommended)" subtitle="Use GPU if available" badge="Recommended" />
-                <ChoiceCard title="GPU" subtitle="NVIDIA GeForce RTX 4060 Ti" sideBadge="8 GB VRAM" />
-                <ChoiceCard title="CPU" subtitle="Use system CPU" />
+              <div className="ui-section-title">How AutoLabel Works</div>
+              <div className="space-y-3 text-[length:var(--font-sm)] text-slate-500">
+                <p>1. Select a dataset with images</p>
+                <p>2. Configure confidence threshold (higher = fewer but more accurate detections)</p>
+                <p>3. Click "Start AutoLabel" — the YOLO model will process each image</p>
+                <p>4. Annotations are saved in YOLO format (.txt files) alongside your images</p>
+                <p>5. Review and edit annotations on the Labeling page</p>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-3 border-t border-slate-100 pt-4">
-                <div className="ui-card-title text-slate-700">Processing Options</div>
-                <CheckRow checked label="Skip already annotated images" subtitle="Do not overwrite existing labels" />
-                <CheckRow label="Only unlabeled images" subtitle="Process only images without annotations" />
-                <CheckRow checked label="Save as new version" subtitle="Create a new version with auto-label results" />
-                <CheckRow label="Apply Non-Maximum Suppression (NMS)" subtitle="Remove overlapping boxes" />
-              </div>
-
-              <div className="space-y-3 border-t border-slate-100 pt-4">
-                <div className="ui-card-title text-slate-700">Output Settings</div>
-                <FieldGroup label="Save Annotations to">
-                  <SelectStub label="New Version" className="w-full" />
-                </FieldGroup>
-                <FieldGroup label="Version Name (Optional)">
-                  <input
-                    className="form-input h-11 rounded-xl"
-                    defaultValue="AutoLabel_YOLOv8n_2025-05-18"
-                    type="text"
-                  />
-                </FieldGroup>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                <Button className="h-12 w-full gap-2">
-                  <Eye className="h-4 w-4" />
-                  Preview AutoLabel
-                </Button>
-                <div className="ui-meta text-center">Review results on sample images before running</div>
+          <Card>
+            <CardContent className="space-y-4 p-4">
+              <div className="ui-section-title">About the Model</div>
+              <div className="space-y-3 text-[length:var(--font-sm)] text-slate-500">
+                <p><strong>YOLOv8n (Nano)</strong> — lightweight and fast pretrained model from Ultralytics.</p>
+                <p>Detects 80 object classes from the COCO dataset: person, car, bicycle, dog, cat, chair, bottle, and more.</p>
+                <p>The model runs on CPU by default. GPU acceleration is used automatically when available.</p>
               </div>
             </CardContent>
           </Card>
