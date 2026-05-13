@@ -51,3 +51,19 @@ export function useDeletePipeline() {
     },
   });
 }
+
+export function useRunPipeline() {
+  const queryClient = useQueryClient();
+  const { success, error } = useNotification();
+
+  return useMutation({
+    mutationFn: (pipelineId: number) => api.runPipeline(pipelineId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: PIPELINES_QUERY_KEY });
+      success("Pipeline run started", `Run #${data.run_number} started`);
+    },
+    onError: (err: Error) => {
+      error("Failed to run pipeline", err.message);
+    },
+  });
+}

@@ -397,6 +397,25 @@ export async function deleteTrainingRun(runId: number): Promise<void> {
   }
 }
 
+export async function startTrainingRun(runId: number, datasetId: number): Promise<TrainingRunItem> {
+  const response = await fetch(`${API_BASE_URL}/training/${runId}/start`, {
+    body: JSON.stringify({ dataset_id: datasetId }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+  return readJson<TrainingRunItem>(response, "Start training failed");
+}
+
+export async function stopTrainingRun(runId: number): Promise<{ stopped: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/training/${runId}/stop`, { method: "POST" });
+  return readJson<{ stopped: boolean }>(response, "Stop training failed");
+}
+
+export async function exportDatasetYolo(datasetId: number): Promise<{ dataset_id: number; export_path: string; data_yaml_path: string; images_exported: number; labels_exported: number }> {
+  const response = await fetch(`${API_BASE_URL}/datasets/${datasetId}/versions/export-yolo`, { method: "POST" });
+  return readJson(response, "Export dataset failed");
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -545,6 +564,20 @@ export async function deletePipeline(pipelineId: number): Promise<void> {
     const body = (await response.json().catch(() => null)) as { detail?: string } | null;
     throw new Error(body?.detail ?? `Delete pipeline failed: ${response.status}`);
   }
+}
+
+export interface PipelineRunItem {
+  id: number;
+  pipeline_id: number;
+  run_number: number;
+  status: string;
+  duration_seconds: number;
+  created_at: string;
+}
+
+export async function runPipeline(pipelineId: number): Promise<PipelineRunItem> {
+  const response = await fetch(`${API_BASE_URL}/pipelines/${pipelineId}/run`, { method: "POST" });
+  return readJson<PipelineRunItem>(response, "Start pipeline run failed");
 }
 
 // ---------------------------------------------------------------------------

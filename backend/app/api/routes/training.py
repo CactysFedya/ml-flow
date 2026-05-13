@@ -103,6 +103,52 @@ def delete_training_run(run_id: int, db: Session = Depends(get_db)) -> None:
     db.commit()
 
 
+@router.post("/training/{run_id}/start")
+def start_training_run(run_id: int, payload: dict | None = None, db: Session = Depends(get_db)):  # type: ignore[type-arg]
+    """Export dataset to YOLO format and start actual YOLO training in a background thread."""
+    from app.services.training_service import start_training, is_training_active
+    from app.services.workspace_service import export_dataset_version_yolo
+
+    row = db.get(TrainingRun, run_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Training run not found")
+
+    if is_training_active(run_id):
+        raise HTTPException(status_code=409, detail="Training is already running")
+
+    dataset_id = (payload or {}).get("dataset_id") or row.dataset_id
+    if not dataset_id:
+        raise HTTPException(status_code=422, detail="dataset_id is required to start training")
+
+    row.dataset_id = dataset_id
+    row.status = "Preparing"
+    db.commit()
+
+    try:
+        export = export_dataset_version_yolo(db, dataset_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    start_training(run_id, export.data_yaml_path)
+    db.refresh(row)
+    return _training_run_to_item(row)
+
+
+@router.post("/training/{run_id}/stop")
+def stop_training_run(run_id: int, db: Session = Depends(get_db)):  # type: ignore[return]
+    """Stop a running training."""
+    from app.services.training_service import stop_training
+
+    row = db.get(TrainingRun, run_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Training run not found")
+    stopped = stop_training(run_id)
+    if stopped:
+        row.status = "Stopping"
+        db.commit()
+    return {"stopped": stopped}
+
+
 def _training_run_to_item(row: TrainingRun) -> TrainingRunItem:
     return TrainingRunItem(
         id=row.id,
