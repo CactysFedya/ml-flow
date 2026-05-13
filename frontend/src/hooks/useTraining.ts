@@ -43,3 +43,36 @@ export function useDeleteTrainingRun() {
     },
   });
 }
+
+export function useStartTrainingRun() {
+  const queryClient = useQueryClient();
+  const { success, error } = useNotification();
+
+  return useMutation({
+    mutationFn: ({ runId, datasetId }: { runId: number; datasetId: number }) =>
+      api.startTrainingRun(runId, datasetId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: TRAINING_QUERY_KEY });
+      success("Training started", `${data.name} is now training`);
+    },
+    onError: (err: Error) => {
+      error("Failed to start training", err.message);
+    },
+  });
+}
+
+export function useStopTrainingRun() {
+  const queryClient = useQueryClient();
+  const { success, error } = useNotification();
+
+  return useMutation({
+    mutationFn: (runId: number) => api.stopTrainingRun(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TRAINING_QUERY_KEY });
+      success("Training stopped", "Training has been stopped");
+    },
+    onError: (err: Error) => {
+      error("Failed to stop training", err.message);
+    },
+  });
+}

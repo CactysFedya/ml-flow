@@ -96,7 +96,7 @@ def get_dashboard_payload(
                 subtitle="Annotation files detected" if total_annotations else "No labels yet",
                 action_label="Open",
             ),
-            SummaryCard(id="models", title="Models", value="0", subtitle="No trained models", action_label="Open"),
+            SummaryCard(id="models", title="Models", value=str(_count_models(db)), subtitle=_models_subtitle(db), action_label="Open"),
             SummaryCard(
                 id="experiments",
                 title="Experiments",
@@ -104,12 +104,12 @@ def get_dashboard_payload(
                 subtitle="Tracked runs for this dataset" if experiment_rows else "No runs yet",
                 action_label="Open",
             ),
-            SummaryCard(id="best-map", title="Best mAP@0.5", value="N/A", subtitle="No evaluations", action_label="Open"),
+            SummaryCard(id="best-map", title="Best mAP@0.5", value=_best_map_value(db), subtitle=_best_map_subtitle(db), action_label="Open"),
             SummaryCard(
                 id="training-jobs",
                 title="Training Jobs",
-                value="0",
-                subtitle="No active jobs",
+                value=str(_count_training_runs(db)),
+                subtitle=_training_subtitle(db),
                 action_label="Open",
             ),
         ],
@@ -371,3 +371,69 @@ def _relative_time(value: datetime) -> str:
         return f"{hours} hours ago"
     days = hours // 24
     return f"{days} days ago"
+
+
+# ---------------------------------------------------------------------------
+# Dashboard KPI helpers for models / training
+# ---------------------------------------------------------------------------
+
+def _count_models(db: Session | None) -> int:
+    if db is None:
+        return 0
+    from app.models.training import ModelRecord
+    return db.query(ModelRecord).count()
+
+
+def _models_subtitle(db: Session | None) -> str:
+    if db is None:
+        return "No trained models"
+    from app.models.training import ModelRecord
+    count = db.query(ModelRecord).count()
+    if count == 0:
+        return "No trained models"
+    return f"{count} registered model{'s' if count != 1 else ''}"
+
+
+def _count_training_runs(db: Session | None) -> int:
+    if db is None:
+        return 0
+    from app.models.training import TrainingRun
+    return db.query(TrainingRun).count()
+
+
+def _training_subtitle(db: Session | None) -> str:
+    if db is None:
+        return "No active jobs"
+    from app.models.training import TrainingRun
+    running = db.query(TrainingRun).filter(TrainingRun.status.in_(["Running", "Preparing"])).count()
+    completed = db.query(TrainingRun).filter(TrainingRun.status == "Completed").count()
+    if running > 0:
+        return f"{running} active, {completed} completed"
+    if completed > 0:
+        return f"{completed} completed"
+    return "No active jobs"
+
+
+def _best_map_value(db: Session | None) -> str:
+    if db is None:
+        return "N/A"
+    from app.models.training import TrainingRun
+    from sqlalchemy import func
+    result = db.query(func.max(TrainingRun.best_map50)).scalar()
+    if result is None or result == 0.0:
+        return "N/A"
+    return f"{result:.3f}"
+
+
+def _best_map_subtitle(db: Session | None) -> str:
+    if db is None:
+        return "No evaluations"
+    from app.models.training import TrainingRun
+    from sqlalchemy import func
+    result = db.query(func.max(TrainingRun.best_map50)).scalar()
+    if result is None or result == 0.0:
+        return "No evaluations"
+    best_run = db.query(TrainingRun).filter(TrainingRun.best_map50 == result).first()
+    if best_run:
+        return f"From {best_run.name}"
+    return "Best across all runs"

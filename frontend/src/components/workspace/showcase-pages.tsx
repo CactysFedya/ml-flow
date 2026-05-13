@@ -45,12 +45,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useSettings, useUpdateSetting } from "@/hooks/useSettings";
-import { usePipelines, useCreatePipeline } from "@/hooks/usePipelines";
+import { usePipelines, useCreatePipeline, useDeletePipeline, useRunPipeline } from "@/hooks/usePipelines";
 import { useDatasets } from "@/hooks/useDatasets";
-import { useTrainingRuns, useCreateTrainingRun, useDeleteTrainingRun } from "@/hooks/useTraining";
+import { useTrainingRuns, useCreateTrainingRun, useDeleteTrainingRun, useStartTrainingRun, useStopTrainingRun } from "@/hooks/useTraining";
 import { useModels, useCreateModel, useDeleteModel } from "@/hooks/useModels";
 import type { SettingItem, TrainingRunItem, ModelItem as ApiModelItem } from "@/lib/api";
-import { resetDatabase, runAutoLabel } from "@/lib/api";
+import { resetDatabase, runAutoLabel, exportDatasetYolo } from "@/lib/api";
 
 
 export function LabelingPage() {
@@ -383,33 +383,54 @@ export function AutoLabelPage() {
 
 export function TrainingPage() {
   const { data: runs = [], isLoading } = useTrainingRuns();
+  const { data: datasets = [] } = useDatasets();
   const createRun = useCreateTrainingRun();
   const deleteRun = useDeleteTrainingRun();
-  const activeRun = runs.find((r) => r.status === "Running") ?? runs[0] ?? null;
+  const startRun = useStartTrainingRun();
+  const stopRun = useStopTrainingRun();
+  const activeRun = runs.find((r) => r.status === "Running" || r.status === "Preparing") ?? runs[0] ?? null;
   const runCount = runs.length;
+  const [selectedDatasetId, setSelectedDatasetId] = useState<number | null>(null);
+
+  const effectiveDatasetId = selectedDatasetId ?? datasets[0]?.id ?? null;
 
   const handleNewTraining = () => {
+    if (!effectiveDatasetId) {
+      alert("Please create a dataset first before starting training.");
+      return;
+    }
     createRun.mutate({
       name: `Training Run #${runCount + 1}`,
-      model_name: "YOLOv8s",
+      model_name: "YOLOv8n",
+      dataset_id: effectiveDatasetId,
       epochs: 50,
       batch_size: 16,
       image_size: 640,
       optimizer: "SGD",
       learning_rate: 0.01,
+    }, {
+      onSuccess: (newRun) => {
+        startRun.mutate({ runId: newRun.id, datasetId: effectiveDatasetId! });
+      },
     });
+  };
+
+  const handleStop = () => {
+    if (activeRun && (activeRun.status === "Running" || activeRun.status === "Preparing")) {
+      stopRun.mutate(activeRun.id);
+    }
   };
 
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
-        <PageIntro title="Training" subtitle="Train your models on the selected dataset" />
-        <Button className="h-11 gap-2" onClick={handleNewTraining} disabled={createRun.isPending}>
+        <PageIntro title="Training" subtitle="Train YOLO models on your annotated datasets" />
+        <Button className="h-11 gap-2" onClick={handleNewTraining} disabled={createRun.isPending || startRun.isPending || !effectiveDatasetId}>
           <Plus className="h-4 w-4" />
           New Training
         </Button>
       </div>
-      <TabBar tabs={["Overview", "Configuration", "Logs", "Artifacts", "TensorBoard", "Hyperparameters"]} active="Overview" />
+      <TabBar tabs={["Overview", "Configuration"]} active="Overview" />
 
       <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(270px,300px)]">
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
@@ -419,30 +440,6 @@ export function TrainingPage() {
             <MiniMetricCard icon={Clock3} label="Total Runs" value={isLoading ? "..." : String(runCount)} subtitle={`${runs.filter(r => r.status === "Completed").length} completed`} />
             <MiniMetricCard icon={TimerReset} label="Elapsed Time" value={activeRun ? `${Math.floor(activeRun.elapsed_seconds / 60)}m ${activeRun.elapsed_seconds % 60}s` : "—"} subtitle="Current run" />
             <MiniMetricCard icon={Zap} label="Best mAP@0.5" value={activeRun ? activeRun.best_map50.toFixed(3) : "—"} subtitle={activeRun ? `Epoch ${activeRun.current_epoch}` : "No data"} />
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Card>
-              <CardContent className="p-4">
-                <SectionHeading title="Training Metrics" />
-                <ChartPanel className="h-[260px]">
-                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
-                    No metrics yet. Metrics will appear after a training run completes.
-                  </div>
-                </ChartPanel>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <SectionHeading title="Loss Curves" />
-                <ChartPanel className="h-[260px]">
-                  <div className="flex h-full items-center justify-center text-[length:var(--font-sm)] text-slate-400">
-                    No loss data yet. Loss curves will appear during training.
-                  </div>
-                </ChartPanel>
-              </CardContent>
-            </Card>
           </div>
 
           <Card>
@@ -462,7 +459,7 @@ export function TrainingPage() {
                   <tbody className="text-[length:var(--font-sm)] text-slate-600">
                     {runs.length === 0 && !isLoading ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No training runs yet. Click &quot;New Training&quot; to start.</td>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">No training runs yet. Select a dataset and click &quot;New Training&quot; to start.</td>
                       </tr>
                     ) : runs.map((run) => (
                       <tr key={run.id} className="border-t border-slate-100">
@@ -471,7 +468,7 @@ export function TrainingPage() {
                         <td className="px-4 py-3">{run.current_epoch} / {run.epochs}</td>
                         <td className="px-4 py-3 font-medium text-emerald-600">{run.best_map50.toFixed(3)}</td>
                         <td className="px-4 py-3">{run.precision.toFixed(3)}</td>
-                        <td className="px-4 py-3"><Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" ? "info" : "success"}>{run.status}</Badge></td>
+                        <td className="px-4 py-3"><Badge tone={run.status === "Failed" ? "danger" : run.status === "Running" || run.status === "Preparing" ? "info" : run.status === "Completed" ? "success" : "default"}>{run.status}</Badge></td>
                         <td className="px-4 py-3">{Math.floor(run.elapsed_seconds / 60)}m {run.elapsed_seconds % 60}s</td>
                         <td className="px-4 py-3">
                           <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deleteRun.mutate(run.id)}>
@@ -490,57 +487,55 @@ export function TrainingPage() {
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-4 p-4">
+              <SectionHeading title="Select Dataset" subtitle="Choose a dataset for training" />
+              {datasets.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
+                  No datasets available. Create a dataset first.
+                </div>
+              ) : (
+                <select
+                  className="form-input h-11 w-full rounded-xl"
+                  value={effectiveDatasetId ?? ""}
+                  onChange={(e) => setSelectedDatasetId(Number(e.target.value))}
+                >
+                  {datasets.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name} {d.version} ({d.stats.images} images)</option>
+                  ))}
+                </select>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4 p-4">
               <SectionHeading title="Training Information" />
               <InfoList
                 items={[
-                  ["Model", activeRun?.model_name ?? "—"],
+                  ["Model", activeRun?.model_name ?? "YOLOv8n"],
                   ["Epochs", activeRun ? `${activeRun.current_epoch} / ${activeRun.epochs}` : "—"],
-                  ["Image Size", activeRun ? `${activeRun.image_size} × ${activeRun.image_size}` : "—"],
-                  ["Batch Size", activeRun ? String(activeRun.batch_size) : "—"],
-                  ["Optimizer", activeRun?.optimizer ?? "—"],
-                  ["Learning Rate", activeRun ? String(activeRun.learning_rate) : "—"],
-                  ["Device", activeRun?.device ?? "auto"],
-                  ["Status", activeRun?.status ?? "—"],
+                  ["Image Size", activeRun ? `${activeRun.image_size} × ${activeRun.image_size}` : "640 × 640"],
+                  ["Batch Size", activeRun ? String(activeRun.batch_size) : "16"],
+                  ["Optimizer", activeRun?.optimizer ?? "SGD"],
+                  ["Learning Rate", activeRun ? String(activeRun.learning_rate) : "0.01"],
                   ["Best mAP@0.5", activeRun ? activeRun.best_map50.toFixed(4) : "—"],
                   ["Precision", activeRun ? activeRun.precision.toFixed(4) : "—"],
                 ]}
               />
-              <Button variant="secondary" className="h-11 w-full gap-2 border border-slate-200 bg-white">
-                <Settings2 className="h-4 w-4" />
-                Edit Configuration
-              </Button>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="space-y-4 p-4">
               <SectionHeading title="Controls" />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Button className="h-11 gap-2 bg-rose-500 shadow-none hover:bg-rose-600">
+              <div className="grid gap-3">
+                <Button
+                  className="h-11 gap-2 bg-rose-500 shadow-none hover:bg-rose-600"
+                  onClick={handleStop}
+                  disabled={!activeRun || (activeRun.status !== "Running" && activeRun.status !== "Preparing")}
+                >
                   <Square className="h-4 w-4" />
                   Stop Training
                 </Button>
-                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                  <Activity className="h-4 w-4" />
-                  Pause
-                </Button>
-                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                  <Save className="h-4 w-4" />
-                  Save Checkpoint
-                </Button>
-                <Button variant="secondary" className="h-11 gap-2 border border-slate-200 bg-white">
-                  <FileDown className="h-4 w-4" />
-                  Export Logs
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Recent Checkpoints" />
-              <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[length:var(--font-sm)] text-slate-400">
-                No checkpoints yet. Checkpoints will appear during training.
               </div>
             </CardContent>
           </Card>
@@ -552,21 +547,38 @@ export function TrainingPage() {
 
 export function AutoMLPage() {
   const { data: runs = [], isLoading } = useTrainingRuns();
+  const { data: datasets = [] } = useDatasets();
   const createRun = useCreateTrainingRun();
+  const startRun = useStartTrainingRun();
   const bestRun = runs.reduce<TrainingRunItem | null>((best, r) => (!best || r.best_map50 > best.best_map50 ? r : best), null);
   const completedCount = runs.filter((r) => r.status === "Completed").length;
   const runningCount = runs.filter((r) => r.status === "Running").length;
   const totalTime = runs.reduce((acc, r) => acc + r.elapsed_seconds, 0);
+  const [autoMLRunning, setAutoMLRunning] = useState(false);
 
   const handleAutoMLRun = () => {
+    const datasetId = datasets[0]?.id;
+    if (!datasetId) {
+      alert("Create a dataset with annotated images first.");
+      return;
+    }
     const modelChoices = ["YOLOv8n", "YOLOv8s", "YOLOv8m", "YOLOv8l"];
     const model = modelChoices[runs.length % modelChoices.length];
+    setAutoMLRunning(true);
     createRun.mutate({
       name: `AutoML Run #${runs.length + 1}`,
       model_name: model,
-      epochs: 200,
+      dataset_id: datasetId,
+      epochs: 50,
       batch_size: 16,
       image_size: 640,
+    }, {
+      onSuccess: (newRun) => {
+        startRun.mutate({ runId: newRun.id, datasetId }, {
+          onSettled: () => setAutoMLRunning(false),
+        });
+      },
+      onError: () => setAutoMLRunning(false),
     });
   };
 
@@ -575,9 +587,9 @@ export function AutoMLPage() {
       <div className="flex items-center gap-3">
         <PageIntro title="AutoML" subtitle="Automatically find the best model and hyperparameters for your dataset" />
         <Badge className="mt-1">Beta</Badge>
-        <Button className="ml-auto h-11 gap-2" onClick={handleAutoMLRun} disabled={createRun.isPending}>
+        <Button className="ml-auto h-11 gap-2" onClick={handleAutoMLRun} disabled={autoMLRunning || createRun.isPending}>
           <Zap className="h-4 w-4" />
-          Start AutoML Run
+          {autoMLRunning ? "Starting..." : "Start AutoML Run"}
         </Button>
       </div>
       <TabBar tabs={["Overview", "Runs", "Compare", "Leaderboard", "Settings"]} active="Overview" />
@@ -1088,15 +1100,26 @@ export function ModelsPage() {
 export function VersionsPage() {
   const { data: datasets = [], isLoading: datasetsLoading } = useDatasets();
   const datasetCount = datasets.length;
+  const [exportingId, setExportingId] = useState<number | null>(null);
+  const [exportResult, setExportResult] = useState<{ images: number; path: string } | null>(null);
+
+  const handleExport = async (datasetId: number) => {
+    setExportingId(datasetId);
+    setExportResult(null);
+    try {
+      const res = await exportDatasetYolo(datasetId);
+      setExportResult({ images: res.images_exported, path: res.export_path });
+    } catch (err) {
+      alert(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setExportingId(null);
+    }
+  };
 
   return (
     <section className="ui-page h-full min-h-0 grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden">
       <div className="flex items-start justify-between gap-4">
         <PageIntro title="Versions" subtitle="Track dataset versions, compare changes and manage snapshots" />
-        <Button className="h-11 gap-2" disabled={datasetCount === 0}>
-          <Plus className="h-4 w-4" />
-          Create Version
-        </Button>
       </div>
       <TabBar tabs={["All Versions", "Compare", "Changelog"]} active="All Versions" />
 
@@ -1153,22 +1176,37 @@ export function VersionsPage() {
         <div className="min-h-0 space-y-4 overflow-auto pr-1">
           <Card>
             <CardContent className="space-y-4 p-4">
-              <SectionHeading title="Create New Version" />
-              <FieldGroup label="Version Label">
-                <input className="form-input h-11 rounded-xl" placeholder="e.g. v1.0" type="text" />
-              </FieldGroup>
-              <FieldGroup label="Description">
-                <textarea
-                  className="min-h-[100px] w-full rounded-xl border border-slate-200 p-3 text-[length:var(--font-sm)] outline-none placeholder:text-slate-400 focus:border-primary"
-                  placeholder="Describe what changed in this version..."
-                />
-              </FieldGroup>
-              <CheckRow checked label="Include all current media files" subtitle="Snapshot all images and videos" />
-              <CheckRow checked label="Include annotations" subtitle="Copy all annotation files" />
-              <Button className="h-12 w-full gap-2" disabled={datasetCount === 0}>
-                <Save className="h-4 w-4" />
-                Create Version Snapshot
-              </Button>
+              <SectionHeading title="Export Dataset (YOLO)" subtitle="Export dataset with images and labels for training" />
+              {datasets.length > 0 ? (
+                <>
+                  <FieldGroup label="Select Dataset">
+                    <select className="form-input h-11 w-full rounded-xl" id="export-dataset-select">
+                      {datasets.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name} {d.version}</option>
+                      ))}
+                    </select>
+                  </FieldGroup>
+                  <Button
+                    className="h-12 w-full gap-2"
+                    disabled={exportingId !== null}
+                    onClick={() => {
+                      const sel = document.getElementById("export-dataset-select") as HTMLSelectElement | null;
+                      const dsId = sel ? Number(sel.value) : datasets[0]?.id;
+                      if (dsId) handleExport(dsId);
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    {exportingId !== null ? "Exporting..." : "Export YOLO Dataset"}
+                  </Button>
+                  {exportResult && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[length:var(--font-sm)] text-emerald-700">
+                      Exported {exportResult.images} images to: <span className="font-mono text-[length:var(--font-xs)]">{exportResult.path}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="py-4 text-center text-[length:var(--font-sm)] text-slate-400">Create a dataset first</div>
+              )}
             </CardContent>
           </Card>
 
@@ -1191,6 +1229,8 @@ export function VersionsPage() {
 export function PipelinesPage() {
   const { data: apiPipelines = [], isLoading: pipelinesLoading } = usePipelines();
   const createPipeline = useCreatePipeline();
+  const deletePipeline = useDeletePipeline();
+  const runPipeline = useRunPipeline();
   const pipelineCount = apiPipelines.length;
 
   return (
@@ -1236,7 +1276,7 @@ export function PipelinesPage() {
                   <table className="w-full border-collapse text-left">
                     <thead className="bg-slate-50 text-[length:var(--font-xs)] font-semibold text-slate-500">
                       <tr>
-                        {["Name", "Description", "Steps", "Status"].map((header) => (
+                        {["Name", "Description", "Steps", "Status", "Actions"].map((header) => (
                           <th key={header} className="px-4 py-3">{header}</th>
                         ))}
                       </tr>
@@ -1247,7 +1287,15 @@ export function PipelinesPage() {
                           <td className="px-4 py-3 font-semibold text-primary">{p.name}</td>
                           <td className="px-4 py-3">{p.description}</td>
                           <td className="px-4 py-3">{p.total_steps}</td>
-                          <td className="px-4 py-3"><Badge tone="default">Ready</Badge></td>
+                          <td className="px-4 py-3"><Badge tone={p.status === "Running" ? "info" : "default"}>{p.status}</Badge></td>
+                          <td className="px-4 py-3 flex items-center gap-2">
+                            <button className="text-primary hover:text-blue-700" type="button" onClick={() => runPipeline.mutate(p.id)} title="Run">
+                              <Play className="h-4 w-4" />
+                            </button>
+                            <button className="text-rose-400 hover:text-rose-600" type="button" onClick={() => deletePipeline.mutate(p.id)} title="Delete">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
